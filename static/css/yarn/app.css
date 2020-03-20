@@ -1,0 +1,53 @@
+.topbar {
+    display: grid;
+    width: 100%;
+    margin: 0px;
+    grid-template-columns: auto 300px;
+    border-bottom: 2px solid black;
+}
+
+.topbar #title {
+    display: inline-block;
+    line-height: 50px;
+    margin-top: 20px;
+}
+
+.search {
+    position: relative;
+    top: 25px;
+}
+
+.search #versionSelect {
+    margin: 10px;
+    display: inline-block;
+}
+
+.search #searchInput {
+    display: inline-block;
+    font-size: 1em;
+}
+
+.search #searchButton {
+    display: inline-block;
+}
+
+.results {
+    display: grid;
+    grid-template-rows: auto auto auto;
+}
+
+#classes {
+    display: block;
+    width: 100%;
+}
+
+.methodData {
+    display: grid;
+    width: 100%;
+    grid-template-columns: 70% 30%;
+}
+
+#field {
+    display: block;
+    width: 100%;
+}

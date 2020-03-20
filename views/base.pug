@@ -1,0 +1,16 @@
+doctype html
+html
+    head
+        title WagYourTail
+        link(rel ="stylesheet" href= "/static/css/base.css")
+        link(rel ="stylesheet" href= "/static/css/sidebar.css")
+        block style
+    body
+        include global/sidebar.pug
+        .content
+            .topbar
+                h1(id= "pageTitle")= pagename
+            .pageContent
+                block content
+        script(src= "/static/js/base.js")
+                    

@@ -1,0 +1,29 @@
+doctype html
+html
+    head
+        title Yarn Mappings Viewer
+        link(rel= "stylesheet" href= "/static/css/yarn/app.css")
+    body
+        .topbar
+            h1(id= "title") Yarn Mappings Viewer
+            .search
+                select(id= "versionSelect")
+                input(type= "search" id= "searchInput")
+                #searchButton Search
+        .results
+            table(id= "classes")
+                th obfuscated
+                th named
+            .methodData
+                table(id= "method")
+                    th descriptor
+                    th obfuscated
+                    th named
+                table(id= "params")
+                    th #
+                    th named
+            table(id= "fields")
+                th type
+                th obfuscated
+                th named
+        script(src="/static/js/yarn/app.js")

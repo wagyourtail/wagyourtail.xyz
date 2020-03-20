@@ -1,0 +1,29 @@
+.content {
+    position: fixed;
+    left: 200px;
+    width: 100%;
+    top: 0px;
+    height: 100%;
+    border: none;
+}
+
+.topbar {
+    padding-left: 10px;
+    display: block;
+    border-bottom: 3px solid rgb(240,240,240);
+    width: 100%;
+}
+
+.topbar h1 {
+    padding-top: 16px;
+    margin-bottom: 9px;
+}
+
+.pageContent {
+    margin-left: 10px;
+}
+
+#pageTitle {
+    margin-top: 0px;
+    margin-bottom: 9px;
+}
