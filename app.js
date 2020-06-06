@@ -38,8 +38,7 @@ app.get('/', async (req, res) => {
 });
 
 app.get("/:section/:page", async (req, res) => {
-    if (req.page == "security.txt" && req.section == ".well-known") res.set('Content-Type', 'text/plain').send("# if you would like to report a security issue, \n# please contact me here \nContact: mailto:admin@wagyourtail.xyz");
-    else if (req.page == null || req.section == null || !pages[req.section] || !pages[req.section][req.page]) res.redirect("/Welcome/About Me");
+    if (req.page == null || req.section == null || !pages[req.section] || !pages[req.section][req.page]) res.redirect("/Welcome/About Me");
     res.render(`pages/${req.page}`, {pagename:req.page, section:req.section, pages:pages});
 });
 
