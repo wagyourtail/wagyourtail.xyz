@@ -8,22 +8,39 @@ html
             h1(id= "title") Yarn Mappings Viewer
             .search
                 select(id= "versionSelect")
+                select(id= "mappingSelect" style= "visibility: hidden;")
                 input(type= "search" id= "searchInput")
                 #searchButton Search
-        .results
-            table(id= "classes")
-                th obfuscated
-                th named
-            .methodData
-                table(id= "method")
-                    th descriptor
-                    th obfuscated
-                    th named
-                table(id= "params")
-                    th #
-                    th named
-            table(id= "fields")
-                th type
-                th obfuscated
-                th named
-        script(src="/static/js/yarn/app.js")
+        #loading
+            img(src= "/static/other/Spinner-1s-200px.svg" alt= "loading")
+            div loading
+        #results(style= "visibility: hidden;")
+            table(id= "classes" cellspacing= "0")
+                thead
+                    tr
+                        th intermediary
+                        th named
+                tbody(id= "ClassTable")
+            #methodData
+                table(id= "method" cellspacing= "0")
+                    thead
+                        tr
+                            th descriptor
+                            th intermediary
+                            th named
+                    tbody(id= "MethodTable")
+                table(id= "params" cellspacing= "0")
+                    thead
+                        tr
+                            th #
+                            th named
+                    tbody(id= "ParamsTable")
+            table(id= "fields" cellspacing= "0")
+                thead
+                    tr
+                        th descriptor
+                        th intermediary
+                        th named
+                tbody(id= "FieldTable")
+        script(src= "https://cdn.rawgit.com/Stuk/jszip/master/dist/jszip.min.js")
+        script(src= "/static/js/yarn/app.js")

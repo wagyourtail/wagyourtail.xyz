@@ -1,8 +1,9 @@
 .topbar {
     display: grid;
+    background-color: #eeeeee;
     width: 100%;
     margin: 0px;
-    grid-template-columns: auto 300px;
+    grid-template-columns: auto 500px;
     border-bottom: 2px solid black;
 }
 
@@ -13,41 +14,159 @@
 }
 
 .search {
-    position: relative;
-    top: 25px;
+    text-align: right;
+    padding-top: 25px;
+    line-height: 50px;
 }
 
 .search #versionSelect {
     margin: 10px;
     display: inline-block;
+    width: 100px;
+    font-size: 1em;
+}
+
+.search #mappingSelect {
+    margin: 10px;
+    display: inline-block;
+    width: 100px;
+    font-size: 1em;
 }
 
 .search #searchInput {
     display: inline-block;
     font-size: 1em;
+    border: none;
+    background-color: #dddddd;
+    border-radius: 10px;
+    padding: 14px 5px;
 }
 
 .search #searchButton {
     display: inline-block;
+    cursor: pointer;
+    padding: 0px 15px;
+    background-color: #3355FF;
+    border-radius: 10px;
+    color: white;
 }
 
-.results {
+#loading {
+    position: fixed;
+    margin-top: 100px;
+    text-align: center;
+    width: 100%;
+}
+
+#results {
     display: grid;
-    grid-template-rows: auto auto auto;
+    grid-template-rows: 1fr 1fr 1fr;
+}
+
+table {
+    border: 1px solid black;
+}
+
+table tbody {
+    width: 100%;
+}
+
+th {
+    position: -webkit-sticky;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: white;
+    border-width: 0px 1px;
+    border-color: black;
+    border-style: solid;
+}
+
+th, td {
+    padding: 0px 10px;
 }
 
 #classes {
     display: block;
-    width: 100%;
+    min-height: 50px;
+    overflow-y: scroll;
 }
 
-.methodData {
+#classes thead tr th {
+    border-bottom: 3px solid black;
+}
+
+.ClassRow {
+    cursor: pointer;
+}
+
+.ClassRow td {
+    padding: 3px 10px;
+    border-width: 1px 0px;
+    border-color: gray;
+    border-style: solid;
+}
+
+.selectedClass {
+    background-color: lightgray;
+}
+
+.ClassRow:hover {
+    background-color: lightblue;
+}
+
+#methodData {
     display: grid;
-    width: 100%;
+    min-height: 50px;
     grid-template-columns: 70% 30%;
 }
 
-#field {
+#method {
     display: block;
-    width: 100%;
+    overflow-y: scroll;
+}
+
+.MethodRow {
+    cursor: pointer;
+}
+
+.MethodRow td {
+    padding: 3px 10px;
+    border-width: 1px 0px;
+    border-color: gray;
+    border-style: solid;
+}
+
+.selectedMethod {
+    background-color: lightgray;
+}
+
+.MethodRow:hover {
+    background-color: lightblue;
+}
+
+#params {
+    display: block;
+    min-height: 50px;
+    overflow-y: scroll;
+}
+
+#params tbody tr td {
+    padding: 3px 10px;
+    border-width: 1px 0px;
+    border-color: gray;
+    border-style: solid;
+}
+
+#fields {
+    display: block;
+    min-height: 50px;
+    overflow-y: scroll;
+}
+
+#fields tbody tr td {
+    padding: 3px 10px;
+    border-width: 1px 0px;
+    border-color: gray;
+    border-style: solid;
 }
