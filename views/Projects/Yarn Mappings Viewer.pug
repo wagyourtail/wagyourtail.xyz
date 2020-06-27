@@ -14,6 +14,9 @@ html
         #loading
             img(src= "/static/other/Spinner-1s-200px.svg" alt= "loading")
             div loading
+        #mobileConfirmPrompt(style= "visibility: hidden;")
+            p Warning. this website runs everything on your device and as such it is not reccomended to use mobile. by continuing you risk crashing your browser.
+            #mobileConfirm accept the risk
         #results(style= "visibility: hidden;")
             table(id= "classes" cellspacing= "0")
                 thead
@@ -42,5 +45,6 @@ html
                         th intermediary
                         th named
                 tbody(id= "FieldTable")
+        script(src= "https://cdnjs.cloudflare.com/ajax/libs/mobile-detect/1.4.4/mobile-detect.min.js")
         script(src= "https://cdn.rawgit.com/Stuk/jszip/master/dist/jszip.min.js")
         script(src= "/static/js/yarn/app.js")

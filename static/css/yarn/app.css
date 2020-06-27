@@ -51,6 +51,25 @@
     color: white;
 }
 
+#mobileConfirmPrompt {
+    position: fixed;
+    margin-top: 100px;
+    text-align: center;
+    width: 50%;
+    margin-left: 25%;
+    background-color: white;
+}
+
+#mobileConfirm {
+    display:inline-block;
+    background-color: #3355FF;
+    cursor: pointer;
+    padding: 10px 15px;
+    background-color: #3355FF;
+    border-radius: 10px;
+    color: white;
+}
+
 #loading {
     position: fixed;
     margin-top: 100px;

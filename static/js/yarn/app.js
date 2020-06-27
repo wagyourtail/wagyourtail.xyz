@@ -1,33 +1,57 @@
+/* MIT LISCENSE
+
+Copyright 2020 Wagyourtail
+
+Permission is hereby granted, free of
+charge, to any person obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following conditions:  The above copyright
+notice and this permission notice shall be included in all copies or substantial
+portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+
 const zip = new JSZip();
+const mobile = new MobileDetect(window.navigator.userAgent);
 let contents = [];
 
 let selectedClass = null;
 let selectedMethod = null;
 
 // list versions and put in version select
-fetch("https://meta.fabricmc.net/v1/versions/game").then(async (res) => {
-    const body = JSON.parse(await res.text());
-    for (const match of body) {
-        const option = document.createElement("option");
-        option.innerHTML = match.version;
-        option.value = match.version;
-        versionSelect.appendChild(option);
-    }
-    const prev = localStorage.getItem("versionSelect.value");
-    if (prev && Array.from(versionSelect.options).map(e=>e.value).includes(prev)) {
-        versionSelect.value = prev;
-    } else {
-        localStorage.setItem("versionSelect.value", versionSelect.value);
-    }
-    loadVersion(versionSelect.value);
-});
+function start() {
+    fetch("https://meta.fabricmc.net/v1/versions/game").then(async (res) => {
+        const body = JSON.parse(await res.text());
+        for (const match of body) {
+            const option = document.createElement("option");
+            option.innerHTML = match.version;
+            option.value = match.version;
+            versionSelect.appendChild(option);
+        }
+        const prev = localStorage.getItem("versionSelect.value");
+        if (prev && Array.from(versionSelect.options).map(e=>e.value).includes(prev)) {
+            versionSelect.value = prev;
+        } else {
+            localStorage.setItem("versionSelect.value", versionSelect.value);
+        }
+        loadVersion(versionSelect.value);
+    });
+}
 
 function loadVersion(v) {
     fetch(`https://meta.fabricmc.net/v1/versions/mappings/${v}`).then(async (res) => {
         const body = JSON.parse(await res.text());
         for (const match of body) {
             const option = document.createElement("option");
-            option.innerHTML = match.version;
+            option.innerHTML = match.version.substring(v.length + 1);
             option.value = match.version;
             mappingSelect.appendChild(option);
         }
@@ -65,11 +89,11 @@ function loadMatchingClasses(q) {
         for (const c of contents) {
             const m = c.split(/\s+/);
             const row = document.createElement("tr");
-            const obf = document.createElement("td");
+            const int = document.createElement("td");
             const named = document.createElement("td");
             row.classList.add("ClassRow");
-            obf.innerHTML = m.shift();
-            row.appendChild(obf);
+            int.innerHTML = m.shift();
+            row.appendChild(int);
             named.innerHTML = m.shift();
             row.appendChild(named);
             row.onclick = () => {
@@ -85,11 +109,11 @@ function loadMatchingClasses(q) {
             if (!c.includes(q)) continue;
             const m = c.split(/\s+/);
             const row = document.createElement("tr");
-            const obf = document.createElement("td");
+            const int = document.createElement("td");
             const named = document.createElement("td");
             row.classList.add("ClassRow");
-            obf.innerHTML = m.shift();
-            row.appendChild(obf);
+            int.innerHTML = m.shift();
+            row.appendChild(int);
             named.innerHTML = m.shift();
             row.appendChild(named);
             row.onclick = () => {
@@ -129,14 +153,14 @@ function loadClass(c) {
         methodData.shift();
         const row = document.createElement("tr");
         const desc = document.createElement("td");
-        const obf = document.createElement("td");
+        const int = document.createElement("td");
         const named = document.createElement("td");
         row.classList.add("MethodRow");
         named.innerHTML = methodData.pop();
-        obf.innerHTML = methodData.pop();
+        int.innerHTML = methodData.pop();
         desc.innerHTML = methodData.join(" ");
         row.appendChild(desc);
-        row.appendChild(obf);
+        row.appendChild(int);
         row.appendChild(named);
         row.onclick = () => {
             if (selectedMethod) selectedMethod.classList.remove("selectedMethod");
@@ -151,13 +175,13 @@ function loadClass(c) {
         fieldData.shift();
         const row = document.createElement("tr");
         const desc = document.createElement("td");
-        const obf = document.createElement("td");
+        const int = document.createElement("td");
         const named = document.createElement("td");
         named.innerHTML = fieldData.pop();
-        obf.innerHTML = fieldData.pop();
+        int.innerHTML = fieldData.pop();
         desc.innerHTML = fieldData.join(" ");
         row.appendChild(desc);
-        row.appendChild(obf);
+        row.appendChild(int);
         row.appendChild(named);
         FieldTable.appendChild(row);
     }
@@ -212,3 +236,16 @@ function windowResize() {
 }
 
 windowResize();
+
+if (mobile.mobile()) {
+    loading.style.visibility = "hidden";
+    mobileConfirmPrompt.style.visibility = "visible";
+} else {
+    start();
+}
+
+mobileConfirm.addEventListener("click", () => {
+    loading.style.visibility = "visible";
+    mobileConfirmPrompt.style.visibility = "hidden";
+    start();
+});
