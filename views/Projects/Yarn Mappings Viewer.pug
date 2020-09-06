@@ -5,12 +5,21 @@ html
         link(rel= "stylesheet" href= "/static/css/yarn/app.css")
     body
         .topbar
-            h1(id= "title") Yarn Mappings Viewer
+            .title
+                h1 Yarn Mappings Viewer
             .search
-                select(id= "versionSelect")
-                select(id= "mappingSelect" style= "visibility: hidden;")
-                input(type= "search" id= "searchInput")
-                #searchButton Search
+                .version
+                    select(id= "versionSelect")
+                    select(id= "mappingSelect" style= "visibility: hidden;")
+                .input
+                    input(type= "search" id= "searchInput")
+                    .type
+                        select(id= "searchType")
+                            option(name="keyword" value="0") keyword
+                            option(name="class" value="1") class
+                            option(name="method" value="2") method
+                            option(name="field", value="3") field
+                    #searchButton Search
         #loading
             img(src= "/static/other/Spinner-1s-200px.svg" alt= "loading")
             div loading
@@ -21,6 +30,7 @@ html
             table(id= "classes" cellspacing= "0")
                 thead
                     tr
+                        th obfuscated
                         th intermediary
                         th named
                 tbody(id= "ClassTable")
@@ -28,6 +38,7 @@ html
                 table(id= "method" cellspacing= "0")
                     thead
                         tr
+                            th obfuscated
                             th descriptor
                             th intermediary
                             th named
@@ -41,10 +52,11 @@ html
             table(id= "fields" cellspacing= "0")
                 thead
                     tr
+                        th obfuscated
                         th descriptor
                         th intermediary
                         th named
                 tbody(id= "FieldTable")
         script(src= "https://cdnjs.cloudflare.com/ajax/libs/mobile-detect/1.4.4/mobile-detect.min.js")
         script(src= "https://cdn.rawgit.com/Stuk/jszip/master/dist/jszip.min.js")
-        script(src= "/static/js/yarn/app.js")
+        script(src= "/static/js/yarn/app2.js")

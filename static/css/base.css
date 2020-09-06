@@ -1,7 +1,6 @@
-.content {
+#content {
     position: fixed;
     left: 200px;
-    width: 100%;
     top: 0px;
     height: 100%;
     border: none;
@@ -14,16 +13,31 @@
     width: 100%;
 }
 
+.topbar div {
+    display: inline-block;
+}
+
+#pageTitle {
+    display: inline-block;
+    padding-right: 50px;
+}
+
 .topbar h1 {
     padding-top: 16px;
     margin-bottom: 9px;
 }
 
-.pageContent {
+#pageContent {
+    overflow-y: scroll;
+    overflow-x: wrap;
     margin-left: 10px;
 }
 
 #pageTitle {
     margin-top: 0px;
     margin-bottom: 9px;
+}
+
+#description {
+    max-width: 800px;
 }

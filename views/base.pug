@@ -7,10 +7,12 @@ html
         block style
     body
         include global/sidebar.pug
-        .content
+        #content
             .topbar
                 h1(id= "pageTitle")= pagename
-            .pageContent
+                div
+                    block externallink
+            #pageContent
                 block content
         script(src= "/static/js/base.js")
                     

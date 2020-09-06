@@ -1,9 +1,8 @@
 window.addEventListener('resize', windowResize);
 
-const desc = document.getElementById("description");
-
 function windowResize() {
-    if (desc) desc.style.maxWidth = `${window.innerWidth - 210}px`;
+    pageContent.style.height = `${window.innerHeight - 75}px`;
+    document.getElementById("content").style.width = `${window.innerWidth - 210}px`;
 }
 
 windowResize();
