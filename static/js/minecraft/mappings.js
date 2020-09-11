@@ -85,6 +85,21 @@ async function loadMCVersions() {
     if (yarnVersions == null) {
         const res = await fetch("https://maven.fabricmc.net/net/fabricmc/yarn/versions.json");
         yarnVersions = JSON.parse(await res.text());
+
+        //legacy yarn
+        const xmlParse = new DOMParser();
+        const intRes = await fetch(`${NO_CORS_BYPASS}/https://dl.bintray.com/legacy-fabric/Legacy-Fabric-Maven/net/fabricmc/intermediary/maven-metadata.xml`);
+        const interXML = xmlParse.parseFromString(await intRes.text(), "text/xml");
+        Array.from(interXML.getElementsByTagName("versions")[0].children).forEach(e => {
+            yarnVersions[e.innerHTML] = [];
+        });
+
+        const yarnRes = await fetch(`${NO_CORS_BYPASS}/https://dl.bintray.com/legacy-fabric/Legacy-Fabric-Maven/net/fabricmc/yarn/maven-metadata.xml`);
+        const yarnXML = xmlParse.parseFromString(await yarnRes.text(), "text/xml");
+        Array.from(yarnXML.getElementsByTagName("versions")[0].children).forEach(e => {
+            e = e.innerHTML;
+            yarnVersions[e.split("+")[0]].push(e.split(".").pop());
+        });
     }
 
     //load mcp version nums
@@ -156,12 +171,14 @@ async function loadVersion(mcVersion) {
 
     if (yarnMappingCheck.checked) {
         await loadYarnIntermediaries(mcVersion);
-        await loadYarn(yarnVersionSelect.value);
+        if (yarnVersionSelect.value != "")
+            await loadYarn(yarnVersionSelect.value);
     }
 
     if (mcpMappingCheck.checked) {
         await loadMCPSrgs(mcVersion);
-        await loadMCP(mcpVersionSelect.value);
+        if (mcpVersionSelect.value != "")
+            await loadMCP(mcpVersionSelect.value);
     }
 
     search(searchInput.value, parseInt(searchType.value));
@@ -196,7 +213,7 @@ async function updateAvailableMCP(mcVersion) {
 async function updateAvailableYarn(mcVersion) {
     yarnVersionSelect.innerHTML = "";
 
-    for (const version of yarnVersions[mcVersion]?.sort((a, b) => parseInt(a)-parseInt(b)) ?? []) {
+    for (const version of yarnVersions[mcVersion]?.sort((a, b) => parseInt(b)-parseInt(a)) ?? []) {
             const option = document.createElement("option");
             option.value = `${mcVersion}+build.${version}`;
             option.innerHTML = `build.${version}`;
@@ -258,7 +275,11 @@ async function loadMCP(mcpVersion) {
 }
 
 async function loadYarn(yarnVersion) {
-    const res = await fetch(`https://maven.fabricmc.net/net/fabricmc/yarn/${yarnVersion}/yarn-${yarnVersion}-v2.jar`);
+    let res;
+    if (mcVersionCompare(versionSelect.value, "1.14") != -1)
+        res = await fetch(`https://maven.fabricmc.net/net/fabricmc/yarn/${yarnVersion}/yarn-${yarnVersion}-v2.jar`);
+    else
+        res = await fetch(`${NO_CORS_BYPASS}/https://dl.bintray.com/legacy-fabric/Legacy-Fabric-Maven/net/fabricmc/yarn/${yarnVersion}/yarn-${yarnVersion}-v2.jar`);
     const zipContent = await zip.loadAsync(await res.arrayBuffer());
 
     const mappings = (await zipContent.file("mappings/mappings.tiny").async("string")).split("<").join("&lt;").split(">").join("&gt;").split("\nc").map(e => e.trim());
@@ -266,8 +287,15 @@ async function loadYarn(yarnVersion) {
 
     for (const classData of mappings) {
         const map = classData.split(/\s+/);
-        const int = map.shift();
-        const named = map.shift();
+        let int;
+        let named;
+        if (mcVersionCompare(versionSelect.value, "1.14.2") != 1 && mcVersionCompare(versionSelect.value, "1.14") != -1) {
+            named = map.shift();
+            int = map.shift();
+        } else {
+            int = map.shift();
+            named = map.shift();
+        }
 
         const intClass = yarnIntermediary.get(int);
         const combinedClass = intClass?.combined;
@@ -282,11 +310,19 @@ async function loadYarn(yarnVersion) {
                 //method
                 case "m":
                     {
-                        const named = line.pop();
-                        const int = line.pop();
-                        lastMethod = intClass.methods.get(int);
-                        if (lastMethod)
+                        if (mcVersionCompare(versionSelect.value, "1.14.2") != 1 && mcVersionCompare(versionSelect.value, "1.14") != -1) {
+                            const int = line.pop();
+                            const named = line.pop();
+                            lastMethod = intClass.methods.get(int);
+                            if (lastMethod)
                             lastMethod.yarn = named;
+                        } else {
+                            const named = line.pop();
+                            const int = line.pop();
+                            lastMethod = intClass.methods.get(int);
+                            if (lastMethod)
+                            lastMethod.yarn = named;
+                        }
                     }
                     break;
                 //params
@@ -307,11 +343,19 @@ async function loadYarn(yarnVersion) {
                 //field
                 case "f":
                     {
-                        const named = line.pop();
-                        const int = line.pop();
-                        const combinedField = intClass.fields.get(int);
-                        if (combinedField)
-                            combinedField.yarn = named;
+                        if (mcVersionCompare(versionSelect.value, "1.14.2") != 1 && mcVersionCompare(versionSelect.value, "1.14") != -1) {
+                            const int = line.pop();
+                            const named = line.pop();
+                            const combinedField = intClass.fields.get(int);
+                            if (combinedField)
+                                combinedField.yarn = named;
+                        } else {
+                            const named = line.pop();
+                            const int = line.pop();
+                            const combinedField = intClass.fields.get(int);
+                            if (combinedField)
+                                combinedField.yarn = named;
+                        }
                     }
                     break;
                 default:
@@ -324,7 +368,11 @@ async function loadYarn(yarnVersion) {
 }
 
 async function loadYarnIntermediaries(mcVersion) {
-    const res = await fetch(`https://maven.fabricmc.net/net/fabricmc/intermediary/${mcVersion}/intermediary-${mcVersion}-v2.jar`);
+    let res;
+    if (mcVersionCompare(mcVersion, "1.14") != -1)
+        res = await fetch(`https://maven.fabricmc.net/net/fabricmc/intermediary/${mcVersion}/intermediary-${mcVersion}-v2.jar`);
+    else
+        res = await fetch(`${NO_CORS_BYPASS}/https://dl.bintray.com/legacy-fabric/Legacy-Fabric-Maven/net/fabricmc/intermediary/${mcVersion}/intermediary-${mcVersion}-v2.jar`);
     const zipContent = await zip.loadAsync(await res.arrayBuffer());
 
     //mappings split by class
