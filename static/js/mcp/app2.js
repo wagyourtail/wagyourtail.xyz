@@ -174,7 +174,6 @@ function loadVersion(version) {
                     {
                         const obf = line.shift();
                         const srg = line.shift().trim();
-                        console.log(srg);
                         srgMappings.set(srg, {obf:obf, methods:new Map(), fields:new Map()});
                         break;
                     }
@@ -184,7 +183,6 @@ function loadVersion(version) {
                         const rest = line.shift().split("/");
                         const srg = rest.pop();
                         const srgClass = rest.join("/");
-                        console.log(srgClass + " " + srgMappings.get(srgClass));
                         srgMappings.get(srgClass.trim())?.fields.set(srg.trim(), obf);
                         break;
                     }

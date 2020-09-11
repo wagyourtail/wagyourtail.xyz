@@ -10,7 +10,7 @@ const pages = {
     "Projects": {
         "Quality Bot" : "Discord bot for server management and automation written in JavaScript.",
         "Js Macros": "Minecraft Macros Mod.",
-        "Yarn Mappings Viewer": "Viewer for the FabricMC yarn mappings for minecraft."
+        "Minecraft Mappings Viewer": "Viewer for the FabricMC yarn mappings for minecraft."
     }
 };
 
