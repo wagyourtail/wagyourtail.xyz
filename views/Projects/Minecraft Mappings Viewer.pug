@@ -2,7 +2,11 @@ doctype html
 html
     head
         title Minecraft Mappings Viewer
-        link(rel= "stylesheet" href= "/static/css/minecraft/mappings.css")
+        link(rel= "stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat|Roboto")
+        link(rel= "stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/5.0.0-alpha1/css/bootstrap.min.css" integrity="sha384-r4NyP46KrjDleawBgD5tp8Y7UzmLA05oM1iAEQ17CSuDqnUK2+k9luXQOfXJCJ4I" crossorigin="anonymous")
+        link(rel= "stylesheet" href= "/static/css/minecraft/mappings.css" type="text/css")
+        script(src= "https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous")
+        script(src= "https://stackpath.bootstrapcdn.com/bootstrap/5.0.0-alpha1/js/bootstrap.min.js" integrity="sha384-oesi62hOLfzrys4LxRF63OJCXdXDipiYWBnvTl9Y9/TRlw5xlKIEHpNyvvDShgf/" crossorigin="anonymous")
         script(src= "https://cdnjs.cloudflare.com/ajax/libs/mobile-detect/1.4.4/mobile-detect.min.js")
         script(src= "https://cdn.rawgit.com/Stuk/jszip/master/dist/jszip.min.js")
     body
@@ -48,11 +52,11 @@ html
             br
             h2 loading
         #mobileConfirmPrompt(style= "visibility: hidden;")
-            p Warning. this website runs everything on your device and as such it is not reccomended to use mobile. by continuing you risk crashing your browser.
+            p Warning. this website runs everything on your device and as such it is not recommended to use mobile. by continuing you risk crashing your browser.
             #mobileConfirm Accept the risk
         #mojangConfirmPrompt(style= "visibility: hidden;") 
             h2 Mojang Mappings
-            p#mojangLiscense (c) 2020 Microsoft Corporation. These mappings are provided "as-is" and you bear the risk of using them. You may copy and use the mappings for development purposes, but you may not redistribute the mappings complete and unmodified. Microsoft makes no warranties, express or implied, with respect to the mappings provided here.  Use and modification of this document or the source code (in any form) of Minecraft: Java Edition is governed by the Minecraft End User License Agreement available at 
+            p#mojangLicense (c) 2020 Microsoft Corporation. These mappings are provided "as-is" and you bear the risk of using them. You may copy and use the mappings for development purposes, but you may not redistribute the mappings complete and unmodified. Microsoft makes no warranties, express or implied, with respect to the mappings provided here.  Use and modification of this document or the source code (in any form) of Minecraft: Java Edition is governed by the Minecraft End User License Agreement available at 
                 a(href="https://account.mojang.com/documents/minecraft_eula") https://account.mojang.com/documents/minecraft_eula
                 | .
             #mojangConfirm Accept
