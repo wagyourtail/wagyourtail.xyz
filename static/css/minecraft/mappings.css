@@ -16,6 +16,7 @@ html, body {
     display: inline-block;
     line-height: 50px;
     padding-left: 10px;
+    padding-top: 25px;
 }
 
 .search {
@@ -64,7 +65,6 @@ html, body {
 
 .input {
     display: inline-block;
-    line-height: 100px;
 }
 
 .input #searchInput {
