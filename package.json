@@ -12,6 +12,7 @@
     "express": "^4.17.1",
     "express-ws": "^4.0.0",
     "fs": "0.0.1-security",
+    "node-fetch": "^2.6.1",
     "pug": "^2.0.4",
     "redis": "^3.0.2"
   }

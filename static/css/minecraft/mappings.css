@@ -1,6 +1,7 @@
-html, body {
+popperhtml, body {
     margin: 0px;
     font-family: 'Montserrat', monospace;
+    background-color: #777777;
 }
 
 .topbar {
@@ -10,13 +11,13 @@ html, body {
     width: 100%;
     margin: 0px;
     border-bottom: 2px solid black;
+    padding-top: 10px;
 }
 
 .title {
     display: inline-block;
     line-height: 50px;
     padding-left: 10px;
-    padding-top: 25px;
 }
 
 .search {
@@ -24,22 +25,30 @@ html, body {
     padding-right: 5px;
 }
 
+.settingGrid {
+    display: grid;
+    grid-template-columns: auto auto;
+}
+
 .mappingtypes {
     display: inline-block;
 }
 
 .mapping {
-    display: inline-block;
+    display: grid;
+    grid-template-columns: auto auto;
     padding: 10px;
 }
 
 .mapping label {
     display: inline-block;
+    text-align: left;
     padding-top: 5px;
+    padding-right: 10px;
 }
 
 .version {
-    display: inline-block;
+    display: block;
     line-height: 100px;
     margin-right: 15px;
 }
@@ -47,6 +56,46 @@ html, body {
 .version label {
     display: inline-block;
     line-height: normal;
+}
+
+#settingsBtn {
+    margin-right: 10px;
+    background-color: #808080;
+}
+
+#exportBtn {
+    margin-right: 10px;
+    background-color: #808080;
+}
+
+#importBtn {
+    margin-right: 10px;
+    background-color: #808080;
+}
+
+#exportConfirm {
+    background-color: #808080;
+}
+
+#settingsBtn div {
+    display: inline-block;
+    text-align: center;
+    line-height: normal;
+}
+#versionData {
+    font-size: .5em;
+    margin-bottom: 0px;
+}
+
+#importType {
+    display: grid;
+    grid-template-rows: auto auto auto auto;
+    text-align: left;
+}
+
+#closeImport {
+    margin-top: 10px;
+    background-color: #808080;
 }
 
 .version #versionSelect {
@@ -77,14 +126,14 @@ html, body {
     line-height: 1em;
 }
 
-.input #searchButton {
+.button {
     display: inline-block;
     cursor: pointer;
     padding: 0px 15px;
-    background-color: #3355FF;
     line-height: 50px;
     border-radius: 10px;
     color: white;
+    background-color: #3355FF;
 }
 
 .type {
@@ -97,65 +146,66 @@ html, body {
     font-size: 1em;
 }
 
-#mobileConfirmPrompt {
+#popupContainer {
     position: fixed;
-    margin-top: 100px;
-    text-align: center;
-    width: 50%;
-    margin-left: 25%;
-    background-color: white;
+    width: 100%;
+    top: 100px;
+    z-index: 5;
 }
 
-#mobileConfirm {
-    display:inline-block;
-    background-color: #3355FF;
-    cursor: pointer;
-    padding: 10px 15px;
-    background-color: #3355FF;
-    border-radius: 10px;
-    color: white;
+.popup {
+    overflow: hidden;
+    display: inline-block;
+    max-width: 50%;
 }
 
-#mojangConfirmPrompt {
-    position: fixed;
-    margin-top: 100px;
+.popupInner {
+    display: inline-block;
+    padding: 10px;
+    border-radius: 5px;
     text-align: center;
-    width: 50%;
-    margin-left: 25%;
     background-color: white;
+    border: 2px outset black;
+}
+
+
+#settings .popup {
+    min-width: 25%;
+}
+
+#loading .popupInner {
+    min-width: 300px;
+    max-width: 300px;
+    min-height: 400px;
+}
+
+#loadingProfiler {
+    padding-top: 10px;
+}
+
+.signatures {
+    text-align: left;
+}
+
+.signatures label {
+    display: block;
+    padding: 10px;
 }
 
 #mojangConfirm {
     margin-right: 5px;
-    display:inline-block;
-    background-color: #3355FF;
-    cursor: pointer;
-    padding: 10px 15px;
-    border-radius: 10px;
-    color: white;
 }
 
 #mojangDeny {
     margin-left: 5px;
-    display:inline-block;
-    background-color: #AAAAAA;
-    cursor: pointer;
-    padding: 10px 15px;
-    border-radius: 10px;
-    color: white;
-}
-
-#loading {
-    position: fixed;
-    margin-top: 100px;
-    text-align: center;
-    width: 100%;
+    background-color: #808080;
 }
 
 #results {
     display: grid;
     grid-template-rows: 1fr 1fr 1fr;
     width: 100%;
+    background-color: #FFFFFF;
 }
 
 table {
@@ -164,6 +214,7 @@ table {
 
 table tbody {
     width: 100%;
+    word-break: break-word;
 }
 
 th {
@@ -174,7 +225,9 @@ th {
     background-color: white;
     border-width: 0px 1px;
     border-color: black;
+    border-collapse: separate;
     border-style: solid;
+    outline: 1px solid;
 }
 
 th, td {
@@ -266,4 +319,14 @@ th, td {
     border-width: 1px 0px;
     border-color: gray;
     border-style: solid;
+}
+
+.resizer {
+    /* Displayed at the right side of column */
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 5px;
+    cursor: col-resize;
+    user-select: none;
 }

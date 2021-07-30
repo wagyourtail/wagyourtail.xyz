@@ -10,30 +10,17 @@ html
         script(src= "https://cdnjs.cloudflare.com/ajax/libs/mobile-detect/1.4.4/mobile-detect.min.js")
         script(src= "https://cdn.rawgit.com/Stuk/jszip/master/dist/jszip.min.js")
     body
-        .topbar
+        .topbar#topbar
             .title
                 h1 Minecraft Mappings Viewer
             .search
-                .version
-                    label(for="showSnapshots") snapshots
-                        center
-                            input#showSnapshots(type= "checkbox")
-                    select#versionSelect
-                .mappingtypes
-                    .mapping#mojang
-                        label(for="mojangMappingCheck") mojang
-                            center
-                                input#mojangMappingCheck(type= "checkbox" disabled)
-                    .mapping#mcp
-                        label(for="mcpMappingCheck") mcp
-                            center
-                                input#mcpMappingCheck(type= "checkbox" disabled)
-                        select#mcpVersionSelect(style= "visibility: hidden;")
-                    .mapping#yarn
-                        label(for="yarnMappingCheck") yarn
-                            center
-                                input#yarnMappingCheck(type= "checkbox" disabled)
-                        select#yarnVersionSelect(style= "visibility: hidden;")
+                .button#importBtn
+                    div Import
+                .button#exportBtn
+                    div Export
+                .button#settingsBtn 
+                    div Settings
+                        p#versionData 
                 .input
                     input#searchInput(type= "search")
                     .type
@@ -42,25 +29,125 @@ html
                             option(name="class" value="1") class
                             option(name="method" value="2") method
                             option(name="field", value="3") field
-                    #searchButton Search
-        #loading
-            svg(xmlns="http://www.w3.org/2000/svg" height="197" width="197" viewBox="0 0 32 32")
-                g(fill="#000000" style="fill: rgb(0, 0, 0);")
-                    path(transform="rotate(0,16,16) translate(1.6,1.6) scale(0.9,0.9)" d="M10.657013,28.944977C12.35199,29.644989,14.149017,30,16,30L16.015015,32 16,32C13.88501,32,11.830994,31.593994,9.8940125,30.794006z M25.903992,25.894989L27.319,27.307983C25.824005,28.804993,24.080017,29.972992,22.13501,30.781006L21.368011,28.934998C23.069,28.227997,24.595001,27.204987,25.903992,25.894989z M3.0700073,21.380981C3.7789917,23.082001,4.8040161,24.606995,6.1149902,25.914978L4.7030029,27.330994C3.2059937,25.837982,2.0350037,24.095001,1.223999,22.151001z M32,15.938995L32,16C32,18.118988,31.591003,20.177979,30.787018,22.121002L28.938995,21.35498C29.643005,19.656982,30,17.85498,30,16z M1.2000122,9.9100037L3.0490112,10.67099C2.3529968,12.362,2,14.153992,2,16L0,16.031006 0,16C0,13.891998,0.40301514,11.842987,1.2000122,9.9100037z M27.27301,4.6459961C28.77301,6.1359863,29.946991,7.8769836,30.761017,9.8179932L28.916992,10.59198C28.20401,8.8930054,27.177002,7.3699951,25.863007,6.0650024z M9.8340149,1.2309875L10.605011,3.0769958C8.9049988,3.7869873,7.381012,4.8129883,6.0750122,6.1259766L4.6570129,4.7149963C6.1490173,3.2160034,7.8909912,2.0440063,9.8340149,1.2309875z M15.953003,0L16,0C18.10199,0,20.145996,0.40197754,22.075012,1.1940002L21.315002,3.0440063C19.627991,2.3509827,17.839996,2,16,2z")
-                        animateTransform(attributeName="transform" attributeType="XML" type="rotate" from="0, 16, 16" to="360, 16, 16" dur="1.5s" repeatCount="indefinite")
-            br
-            br
-            h2 loading
-        #mobileConfirmPrompt(style= "visibility: hidden;")
-            p Warning. this website runs everything on your device and as such it is not recommended to use mobile. by continuing you risk crashing your browser.
-            #mobileConfirm Accept the risk
-        #mojangConfirmPrompt(style= "visibility: hidden;") 
-            h2 Mojang Mappings
-            p#mojangLicense (c) 2020 Microsoft Corporation. These mappings are provided "as-is" and you bear the risk of using them. You may copy and use the mappings for development purposes, but you may not redistribute the mappings complete and unmodified. Microsoft makes no warranties, express or implied, with respect to the mappings provided here.  Use and modification of this document or the source code (in any form) of Minecraft: Java Edition is governed by the Minecraft End User License Agreement available at 
-                a(href="https://account.mojang.com/documents/minecraft_eula") https://account.mojang.com/documents/minecraft_eula
-                | .
-            #mojangConfirm Accept
-            #mojangDeny Deny
+                    .button#searchButton Search
+        center#popupContainer
+            .popup#loading
+                .popupInner
+                    h2 loading
+                    br
+                    svg(xmlns="http://www.w3.org/2000/svg" height="197" width="197" viewBox="0 0 32 32")
+                        g(fill="#000000" style="fill: rgb(0, 0, 0);")
+                            path(transform="rotate(0,16,16) translate(1.6,1.6) scale(0.9,0.9)" d="M10.657013,28.944977C12.35199,29.644989,14.149017,30,16,30L16.015015,32 16,32C13.88501,32,11.830994,31.593994,9.8940125,30.794006z M25.903992,25.894989L27.319,27.307983C25.824005,28.804993,24.080017,29.972992,22.13501,30.781006L21.368011,28.934998C23.069,28.227997,24.595001,27.204987,25.903992,25.894989z M3.0700073,21.380981C3.7789917,23.082001,4.8040161,24.606995,6.1149902,25.914978L4.7030029,27.330994C3.2059937,25.837982,2.0350037,24.095001,1.223999,22.151001z M32,15.938995L32,16C32,18.118988,31.591003,20.177979,30.787018,22.121002L28.938995,21.35498C29.643005,19.656982,30,17.85498,30,16z M1.2000122,9.9100037L3.0490112,10.67099C2.3529968,12.362,2,14.153992,2,16L0,16.031006 0,16C0,13.891998,0.40301514,11.842987,1.2000122,9.9100037z M27.27301,4.6459961C28.77301,6.1359863,29.946991,7.8769836,30.761017,9.8179932L28.916992,10.59198C28.20401,8.8930054,27.177002,7.3699951,25.863007,6.0650024z M9.8340149,1.2309875L10.605011,3.0769958C8.9049988,3.7869873,7.381012,4.8129883,6.0750122,6.1259766L4.6570129,4.7149963C6.1490173,3.2160034,7.8909912,2.0440063,9.8340149,1.2309875z M15.953003,0L16,0C18.10199,0,20.145996,0.40197754,22.075012,1.1940002L21.315002,3.0440063C19.627991,2.3509827,17.839996,2,16,2z")
+                                animateTransform(attributeName="transform" attributeType="XML" type="rotate" from="0, 16, 16" to="360, 16, 16" dur="1.5s" repeatCount="indefinite")
+                    br
+                    br
+                    p#loadingProfiler
+            .popup#mobileConfirmPrompt(style= "display: none;")
+                .popupInner
+                    h2 Mobile Warning!
+                    p Warning. this website runs everything on your device and as such it is not recommended to use mobile. 
+                        br
+                        | By continuing you risk crashing your browser.
+                    .button#mobileConfirm Accept the risk
+            .popup#mojangConfirmPrompt(style= "display: none;")
+                .popupInner
+                    h2 Mojang Mappings
+                    p#mojangLicense The mapping viewer is now downloading the mojang mappings.
+                        br 
+                        br 
+                        | (c) 2020 Microsoft Corporation. These mappings are provided "as-is" and you bear the risk of using them. You may copy and use the mappings for development purposes, but you may not redistribute the mappings complete and unmodified. Microsoft makes no warranties, express or implied, with respect to the mappings provided here.  Use and modification of this document or the source code (in any form) of Minecraft: Java Edition is governed by the Minecraft End User License Agreement available at 
+                        a(href="https://account.mojang.com/documents/minecraft_eula") https://account.mojang.com/documents/minecraft_eula
+                        | .
+                    .button#mojangConfirm Accept
+                    .button#mojangDeny Deny
+            .popup#settings(style= "display: none;")
+                .popupInner
+                    h2 Settings
+                    .version
+                        label(for="showSnapshots") snapshots
+                            br
+                            input#showSnapshots(type= "checkbox")
+                        select#versionSelect
+                    .settingGrid
+                        .mappingtypes
+                            h4 Mappings
+                            .mapping
+                                label(for="mojangMappingCheck")
+                                    input#mojangMappingCheck(type= "checkbox" disabled)
+                                    |  Mojang
+                            .mapping
+                                label(for="srgMappingCheck")
+                                    input#srgMappingCheck(type= "checkbox" disabled)
+                                    |  SRG 
+                            .mapping
+                                label(for="mcpMappingCheck")
+                                    input#mcpMappingCheck(type= "checkbox" disabled)
+                                    |  MCP 
+                                select#mcpVersionSelect(style= "visibility: hidden;")
+                            .mapping
+                                label(for="yarnIntermediaryMappingCheck") 
+                                    input#yarnIntermediaryMappingCheck(type= "checkbox" disabled)
+                                    |  Yarn Intermediary
+                            .mapping
+                                label(for="yarnMappingCheck")
+                                    input#yarnMappingCheck(type= "checkbox" disabled)
+                                    |  Yarn 
+                                select#yarnVersionSelect(style= "visibility: hidden;")
+                        .signatures
+                            h4 Signatures
+                            label(for="mojangSignatureCheck")
+                                input#mojangSignatureCheck(type= "checkbox")
+                                |  Mojang
+                            label(for="srgSignatureCheck")
+                                input#srgSignatureCheck(type= "checkbox")
+                                |  SRG
+                            label(for="mcpSignatureCheck")
+                                input#mcpSignatureCheck(type= "checkbox")
+                                |  MCP
+                            label(for="yarnIntermediarySignatureCheck")
+                                input#yarnIntermediarySignatureCheck(type= "checkbox")
+                                |  Yarn Intermediary
+                            label(for="yarnSignatureCheck")
+                                input#yarnSignatureCheck(type= "checkbox")
+                                |  Yarn
+                    div
+                        .button#closeSettings close
+            .popup#exportPop(style= "display: none;")
+                .popupInner
+                    h2 Export
+                    div
+                    .mapping
+                        h4.text-left From:
+                        select#exportFrom
+                    .mapping
+                        h4.text-left To:
+                        select#exportTo
+                    .button#exportConfirm Export to tiny mappings
+                    div
+                        .button#closeExport close
+            .popup#importPop(style= "display: none;")
+                .popupInner
+                    h2 Import
+                    div
+                        | import custom mapping
+                    input#customMapping(type= "file" accept= ".tiny,.tsrg,.srg,.zip")
+                    #importType
+                        label(for= "yarnIntermediaryImport")
+                            input(type= "radio" id= "yarnIntermediaryImport" name= "importMapping" value= "yarnIntermediary" checked)
+                            |  Yarn Intermediary
+                        label(for= "yarnImport")
+                            input(type= "radio" id= "yarnImport" name= "importMapping" value= "yarn")
+                            |  Yarn
+                        label(for= "srgImport")
+                            input(type= "radio" id= "srgImport" name= "importMapping" value= "srg")
+                            |  srg
+                        label(for= "mcpImport")
+                            input(type= "radio" id= "mcpImport" name= "importMapping" value= "mcp")
+                            |  mcp
+                    div
+                        .button#confirmImport confirm
+                    div
+                        .button#closeImport close
         #results(style= "visibility: hidden;")
             table#classes(cellspacing= "0")
                 thead

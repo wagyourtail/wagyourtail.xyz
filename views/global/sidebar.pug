@@ -1,4 +1,4 @@
-#menu
+nav#menu
     each section in Object.keys(pages)
         .menuSection(id= section)
             .mTitle= section
@@ -8,3 +8,7 @@
                     .mTitle= page
                     .mDesc= pages[section][page]
             .menuSeparator
+    .menuBottom
+        a(href= "https://github.com/wagyourtail")
+            .menuItem(id= "Github")
+                .mTitle Github

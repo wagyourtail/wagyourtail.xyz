@@ -1,5 +1,7 @@
 #menu {
     position:fixed;
+    display: flex;
+    flex-direction: column;
     left:0px;
     top:0px;
     width:200px;
@@ -62,4 +64,12 @@
 
 .menuSeparator {
     height: 10px;
+}
+
+.menuBottom {
+  margin-top: auto;
+}
+
+.menuBottom .menuItem {
+  margin-bottom: 0px;
 }
