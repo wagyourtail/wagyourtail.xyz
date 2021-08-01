@@ -1,0 +1,20 @@
+doctype html
+html(lang="en-US")
+    head
+        title WagYourTail
+        link(rel= "stylesheet" href= "/static/base.css")
+        link(rel= "stylesheet" href= "/static/sidebar.css")
+        script(src= "https://cdn.jsdelivr.net/npm/sweetalert2@10/dist/sweetalert2.min.js" crossorigin="anonymous")
+        meta(name="viewport" content="width=device-width, initial-scale=1.0")
+        block style
+    body
+        include sidebar
+        #content
+            header.topbar
+                h1#pageTitle= page.pageTitle
+                div
+                    block externallink
+            main#pageContent
+                block content
+        script(src= "/static/base.js")
+

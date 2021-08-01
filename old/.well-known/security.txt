@@ -1,0 +1,3 @@
+# if you would like to report a security issue,
+# please contact me here
+Contact: mailto:admin@wagyourtail.xyz

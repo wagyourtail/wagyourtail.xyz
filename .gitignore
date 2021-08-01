@@ -1,3 +1,7 @@
 node_modules/
+old/
+*.js
+.idea/
+
 package-lock.json
 

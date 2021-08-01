@@ -1,0 +1,14 @@
+nav#menu
+    each section in [...site.sections.keys()].reverse()
+        .menuSection(id= section)
+            .mTitle= section
+        each page in [...site.sections.get(section).keys()]
+            a(href= `/${section}/${page}`)
+                .menuItem(id= page)
+                    .mTitle= site.sections.get(section).get(page).pageTitle
+                    .mDesc= site.sections.get(section).get(page).pageDescription
+            .menuSeparator
+    .menuBottom
+        a(href= "https://github.com/wagyourtail")
+            .menuItem(id= "Github")
+                .mTitle Github

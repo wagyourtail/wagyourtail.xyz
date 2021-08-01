@@ -1,0 +1,14 @@
+nav#menu
+    each section in Object.keys(pages)
+        .menuSection(id= section)
+            .mTitle= section
+        each page in Object.keys(pages[section])
+            a(href= `/${section}/${page}`)
+                .menuItem(id= page)
+                    .mTitle= page
+                    .mDesc= pages[section][page]
+            .menuSeparator
+    .menuBottom
+        a(href= "https://github.com/wagyourtail")
+            .menuItem(id= "Github")
+                .mTitle Github
