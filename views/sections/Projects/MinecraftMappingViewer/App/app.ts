@@ -1,7 +1,10 @@
-import jsz from "jszip";
+import * as jsz from "jszip";
+import { JSZipObject } from "jszip";
+import { query } from "express";
 
-//trick to keep typescript from requiring it...
-declare const JSZip: jsz
+export = 0;
+
+declare const JSZip: jsz;
 
 declare const versionSelect: HTMLSelectElement;
 declare const showSnapshots: HTMLInputElement;
@@ -202,6 +205,12 @@ enum SRGVersion {
     SRG, TSRG, TSRG2
 }
 
+type ReversedMappings = {
+    obf: string | undefined,
+    fields: Map<string, {desc: string, obf: string}>,
+    methods: Map<string, {retval: string, params: string, obf: string}>
+};
+
 class ClassMappings {
     readonly mcversion: MCVersionSlug;
     readonly loadedMappings: Set<MappingTypes> = new Set();
@@ -260,15 +269,10 @@ class ClassMappings {
         lines.shift(); // copyright notice
         const classes = lines.join("\n").matchAll(/^[^\s].+?$(?:\n\s.+?$)*/gm);
 
-        type ReversedMappings = {
-            obf: string | undefined,
-            fields: Map<string, {desc: string, obf: string}>,
-            methods: Map<string, {retval: string, params: string, obf: string}>
-        };
-
         // build reversed mappings
         const reversedMappings = new Map<string, ReversedMappings>();
-        for (const classdata of classes ?? []) {
+        for (const cdata of classes ?? []) {
+            const classdata = cdata[0].split("\n");
             const cNameData = classdata.shift()?.split("-&gt;");
             const cNamed = cNameData?.shift()?.trim();
 
@@ -284,7 +288,7 @@ class ClassMappings {
 
             for (const classItem of classdata) {
                 const line = classItem.trim();
-                const matchMethod = line.match(/^(?:\d+:\d+:)?([^\s]+)\s*([^\s]+)\((.*?)\)\s*-&gt;\s*([^\s]+)/);
+                const matchMethod = line.match(/^(?:\d+:\d+:)?([^\s]+)\s*([^\s]+)(\(.*?\))\s*-&gt;\s*([^\s]+)/);
                 if (matchMethod) {
                     classItemData.methods.set(matchMethod[2], {retval:matchMethod[1], params:matchMethod[3], obf:matchMethod[4]});
                     continue;
@@ -300,20 +304,79 @@ class ClassMappings {
         // reverse reversed mappings and change method descriptors to correct format.
         reversedMappings.forEach((mappings, named) => {
             if (!mappings.obf) return;
-            const classData = new ClassData(mappings.obf);
-            classData.mappings.set(MappingTypes.MOJMAP, named);
+            const classData = new ClassData(mappings.obf.replace(".", "/"));
+            classData.mappings.set(MappingTypes.MOJMAP, named.replace(".", "/"));
 
             mappings.methods.forEach((methodMappings, named) => {
-                //TODO
+                const md = new MethodData(this, methodMappings.obf, ClassMappings.transformProguardDescriptors(reversedMappings, methodMappings.params + methodMappings.retval))
+                md.addMapping(MappingTypes.MOJMAP, named);
+                classData.methods.set(md.getKey(), md);
             });
 
             mappings.fields.forEach((fieldMappings, named) => {
-                //TODO
+                const fd = new FieldData(this, fieldMappings.obf, ClassMappings.transformProguardDescriptors(reversedMappings, fieldMappings.desc));
+                fd.addMapping(MappingTypes.MOJMAP, named);
+                classData.fields.set(fd.getKey(), fd);
             });
+
+            this.classes.set(mappings.obf.replace(".", "/"), classData);
         })
 
         this.loadedMappings.add(MappingTypes.MOJMAP);
         profilerDel("Parsing Mojang Mappings");
+    }
+
+    private static transformProguardDescriptors(reversedMappings: Map<string, ReversedMappings>, desc: string): string {
+        //method
+        if (desc.includes("(")) {
+            const match = desc.match(/\((.*)\)(.+)/);
+            if (!match) throw new Error(`proguard method descriptor bad format "${desc}"`);
+            if (match[1] == "") return "()" + ClassMappings.transformProguardClass(reversedMappings.get(match[2])?.obf ?? match[2])
+            return match[1].split(",").map(e => ClassMappings.transformProguardClass(reversedMappings.get(e)?.obf ?? e)).join("") + ClassMappings.transformProguardClass(reversedMappings.get(match[2])?.obf ?? match[2]);
+        //field
+        } else {
+            return ClassMappings.transformProguardClass(reversedMappings.get(desc)?.obf ?? desc);
+        }
+    }
+
+    private static transformProguardClass(clazz: string): string {
+        const dims = (clazz.match(/\[\]/g) ?? []).length;
+        let sig: string;
+        switch (clazz.replace("[]", "")) {
+            case "boolean":
+                sig = "Z";
+                break;
+            case "byte":
+                sig = "B";
+                break;
+            case "char":
+                sig = "C";
+                break;
+            case "short":
+                sig = "S";
+                break;
+            case "int":
+                sig = "I";
+                break;
+            case "long":
+                sig = "J";
+                break;
+            case "float":
+                sig = "F";
+                break;
+            case "double":
+                sig = "D";
+                break;
+            case "void":
+                sig = "V";
+                break;
+            default:
+                sig = `L${clazz.replace("[]", "").replace(".", "/")};`
+        }
+        for (let i = 0; i < dims; ++i) {
+            sig = "[" + sig;
+        }
+        return sig;
     }
 
     async getParchmentMappings() {
@@ -339,7 +402,7 @@ class ClassMappings {
         //TODO
     }
 
-    async loadMCPMappings(mcp_zip: jsz.JSZipObject) {
+    async loadMCPMappings(mcp_zip: JSZipObject) {
         if (!this.loadedMappings.add(MappingTypes.SRG)) {
             await this.getSrgMappings();
         }
@@ -377,12 +440,13 @@ abstract class AbstractData {
         this.obfName = obfName;
     }
 
-    addMapping(mappingType: MappingTypes, name: string, comment: string) {
+    addMapping(mappingType: MappingTypes, name: string, comment?: string) {
         if (mappingType === MappingTypes.OBF) {
             throw new Error("Tried to change obf name!");
         }
         this.mappings.set(mappingType, name);
-        this.comments.set(mappingType, comment);
+        if (comment)
+            this.comments.set(mappingType, comment);
     }
 
     getMapping(mappingType: MappingTypes) {
@@ -399,8 +463,8 @@ abstract class AbstractData {
 }
 
 abstract class ClassItem extends AbstractData {
-    readonly obfDesc: string;
-    readonly descriptors: Map<MappingTypes, string> = new Map();
+    protected readonly obfDesc: string;
+    protected readonly descriptors: Map<MappingTypes, string> = new Map();
 
     constructor(classMappings: ClassMappings, obfName: string, obfDesc: string) {
         super(classMappings, obfName);
@@ -425,14 +489,20 @@ abstract class ClassItem extends AbstractData {
         }
         return this.descriptors.get(mappingType);
     }
+
+    abstract getKey(): string;
 }
 
 class MethodData extends ClassItem {
-    readonly params: Map<MappingTypes, string[]> = new Map();
+    readonly params: Map<MappingTypes, Map<number, string>> = new Map();
 
     transformDescriptor(MappingType: MappingTypes): string {
         //TODO
         return "";
+    }
+
+    getKey(): string {
+        return this.obfName + this.obfDesc;
     }
 
 }
@@ -441,6 +511,10 @@ class FieldData extends ClassItem {
     transformDescriptor(MappingType: MappingTypes): string {
         //TODO
         return "";
+    }
+
+    getKey(): string {
+        return this.obfName;
     }
 }
 
@@ -548,20 +622,483 @@ enum SearchType {
     KEYWORD, CLASS, METHOD, FIELD
 }
 
+declare const classTableHead: HTMLTableElement;
+declare const methodTableHead: HTMLTableElement;
+declare const fieldTableHead: HTMLTableElement;
+declare const paramsTableHead: HTMLTableElement;
+
+declare const classes: HTMLTableElement;
+declare const method: HTMLTableElement;
+declare const fields: HTMLTableElement;
+declare const params: HTMLTableElement;
+
+async function setTopbars(enabled: MappingTypes[]) {
+    profiler("Updating Table Headers");
+    //class
+    {
+        classTableHead.innerHTML = "";
+        const obf = document.createElement("th");
+        obf.innerHTML = "Obfuscated";
+        classTableHead.appendChild(obf);
+
+        if (enabled.includes(MappingTypes.MOJMAP)) {
+            const mojang = document.createElement("th");
+            mojang.innerHTML = "Mojang";
+            classTableHead.appendChild(mojang);
+        }
+
+        if (enabled.includes(MappingTypes.SRG) || enabled.includes(MappingTypes.MCP)) {
+            const mcp = document.createElement("th");
+            const text = [];
+            if (enabled.includes(MappingTypes.SRG))
+                text.push("SRG");
+            if (enabled.includes(MappingTypes.MCP))
+                text.push("MCP");
+            mcp.innerHTML = text.join("/");
+            classTableHead.appendChild(mcp);
+        }
+
+        if (enabled.includes(MappingTypes.INTERMEDIARY)) {
+            const yarnIntermediary = document.createElement("th");
+            yarnIntermediary.innerHTML= "Yarn Intermediary";
+            classTableHead.appendChild(yarnIntermediary);
+        }
+
+        if (enabled.includes(MappingTypes.YARN)) {
+            const yarn = document.createElement("th");
+            yarn.innerHTML = "Yarn";
+            classTableHead.appendChild(yarn);
+        }
+    }
+
+    //method
+    {
+        methodTableHead.innerHTML = "";
+        const obf = document.createElement("th");
+        obf.innerHTML = "Obfuscated";
+        methodTableHead.appendChild(obf);
+
+        if (enabled.includes(MappingTypes.MOJMAP)) {
+            const mojang = document.createElement("th");
+            mojang.innerHTML = "Mojang";
+            methodTableHead.appendChild(mojang);
+        }
+
+
+        if (enabled.includes(MappingTypes.SRG)) {
+            const srg = document.createElement("th");
+            srg.innerHTML = "SRG";
+            methodTableHead.appendChild(srg);
+        }
+
+        if (enabled.includes(MappingTypes.MCP)) {
+            const mcp = document.createElement("th");
+            mcp.innerHTML = "MCP";
+            methodTableHead.appendChild(mcp);
+        }
+
+        if (enabled.includes(MappingTypes.INTERMEDIARY)) {
+            const yarnIntermediary = document.createElement("th");
+            yarnIntermediary.innerHTML= "Yarn Intermediary";
+            methodTableHead.appendChild(yarnIntermediary);
+        }
+
+        if (enabled.includes(MappingTypes.YARN)) {
+            const yarn = document.createElement("th");
+            yarn.innerHTML = "Yarn";
+            methodTableHead.appendChild(yarn);
+        }
+    }
+
+    //field
+    {
+        fieldTableHead.innerHTML = "";
+        const obf = document.createElement("th");
+        obf.innerHTML = "Obfuscated";
+        fieldTableHead.appendChild(obf);
+
+        if (enabled.includes(MappingTypes.MOJMAP)) {
+            const mojang = document.createElement("th");
+            mojang.innerHTML = "Mojang";
+            fieldTableHead.appendChild(mojang);
+        }
+
+
+        if (enabled.includes(MappingTypes.SRG)) {
+            const srg = document.createElement("th");
+            srg.innerHTML = "SRG";
+            fieldTableHead.appendChild(srg);
+        }
+
+        if (enabled.includes(MappingTypes.MCP)) {
+            const mcp = document.createElement("th");
+            mcp.innerHTML = "MCP";
+            fieldTableHead.appendChild(mcp);
+        }
+
+        if (enabled.includes(MappingTypes.INTERMEDIARY)) {
+            const yarnIntermediary = document.createElement("th");
+            yarnIntermediary.innerHTML= "Yarn Intermediary";
+            fieldTableHead.appendChild(yarnIntermediary);
+        }
+
+        if (enabled.includes(MappingTypes.YARN)) {
+            const yarn = document.createElement("th");
+            yarn.innerHTML = "Yarn";
+            fieldTableHead.appendChild(yarn);
+        }
+    }
+
+    //params
+    {
+        paramsTableHead.innerHTML = "";
+        const obf = document.createElement("th");
+        obf.innerHTML = "#";
+        paramsTableHead.appendChild(obf);
+
+        if (enabled.includes(MappingTypes.MCP)) {
+            const mcp = document.createElement("th");
+            mcp.innerHTML = "MCP";
+            paramsTableHead.appendChild(mcp);
+        }
+
+        if (enabled.includes(MappingTypes.YARN)) {
+            const yarn = document.createElement("th");
+            yarn.innerHTML = "Yarn";
+            paramsTableHead.appendChild(yarn);
+        }
+    }
+
+    buildResize(classes);
+    buildResize(method);
+    buildResize(params);
+    buildResize(fields);
+
+    profilerDel("Updating Table Headers");
+}
+
+function buildResize(table: HTMLTableElement) {
+    // Query all headers
+    const cols = table.querySelectorAll('th');
+
+    // Loop over them
+    Array.from(cols).forEach((col) => {
+        // Create a resizer element
+        const resizer = document.createElement('div');
+        resizer.classList.add('resizer');
+
+        // Set the height
+        resizer.style.height = `${table.offsetHeight}px`;
+
+        // Add a resizer element to the column
+        col.appendChild(resizer);
+
+        // Will be implemented in the next section
+        createResizableColumn(col, resizer);
+    });
+}
+
+function createResizableColumn(col: HTMLTableHeaderCellElement, resizer: HTMLDivElement) {
+    // Track the current position of mouse
+    let x = 0;
+    let w = 0;
+
+    const mouseDownHandler = function(e: MouseEvent) {
+        // Get the current mouse position
+        x = e.clientX;
+
+        // Calculate the current width of column
+        const styles = window.getComputedStyle(col);
+        w = parseInt(styles.width, 10);
+
+        // Attach listeners for document's events
+        document.addEventListener('mousemove', mouseMoveHandler);
+        document.addEventListener('mouseup', mouseUpHandler);
+    };
+
+    const mouseMoveHandler = (e: MouseEvent) => {
+        // Determine how far the mouse has been moved
+        const dx = e.clientX - x;
+
+        // Update the width of column
+        col.style.width = `${w + dx}px`;
+    };
+
+    // When user releases the mouse, remove the existing event listeners
+    const mouseUpHandler = function() {
+        document.removeEventListener('mousemove', mouseMoveHandler);
+        document.removeEventListener('mouseup', mouseUpHandler);
+    };
+
+    resizer.addEventListener('mousedown', mouseDownHandler);
+};
+
+declare const ClassTable: HTMLTableElement;
+declare const MethodTable: HTMLTableElement;
+declare const ParamsTable: HTMLTableElement;
+declare const FieldTable: HTMLTableElement;
+
 async function search(value: string, type: SearchType) {
     setLoading(true);
-    // window.history.replaceState({}, '', `${window.location.href.split('?')[0]}?version=${versionSelect.value}&mapping=${mapping().join(",")}&search=${query}`);
+    const enabledMappings = getEnabledMappings(mappings.mcversion);
+    window.history.replaceState({}, '', `${window.location.href.split('?')[0]}?version=${versionSelect.value}&mapping=${enabledMappings.map(e => MappingTypes[e]).join(",")}&search=${value}`);
     profiler("Searching");
+
+    setTopbars(enabledMappings);
 
     value = value.toLowerCase().trim();
 
-    //TODO
+    //clear all tables
+    ClassTable.innerHTML = "";
+    MethodTable.innerHTML = "";
+    ParamsTable.innerHTML = "";
+    FieldTable.innerHTML = "";
 
+    const classes = [];
+    mappings.classes.forEach((classData, obfName) => {
+        if (value === "") addClass(classData, enabledMappings, "");
 
+        if (type === SearchType.KEYWORD || type == SearchType.CLASS) {
+
+        }
+    });
 
     profilerDel("Searching");
     setLoading(false);
 }
+
+let selectedClass: HTMLTableRowElement | null = null;
+
+async function addClass(classData: ClassData, enabledMappings: MappingTypes[], searchValue: string) {
+    const row = document.createElement("tr");
+    const obf = document.createElement("td");
+    obf.innerHTML = classData.obfName;
+
+    row.classList.add("ClassRow");
+    row.appendChild(obf);
+
+    if (enabledMappings.includes(MappingTypes.MOJMAP)) {
+        const mojang = document.createElement("td");
+        mojang.innerHTML = classData.mappings.get(MappingTypes.MOJMAP) ?? "-";
+
+        row.appendChild(mojang);
+    }
+
+    if (enabledMappings.includes(MappingTypes.SRG) || enabledMappings.includes(MappingTypes.MCP)) {
+        const mcp = document.createElement("td");
+        mcp.innerHTML = classData.mappings.get(MappingTypes.SRG) ?? "-";
+
+        row.appendChild(mcp);
+    }
+
+    if (enabledMappings.includes(MappingTypes.INTERMEDIARY)) {
+        const yarnIntermediary = document.createElement("td");
+        yarnIntermediary.innerHTML = classData.mappings.get(MappingTypes.INTERMEDIARY) ?? "-";
+        row.appendChild(yarnIntermediary);
+    }
+
+    if (enabledMappings.includes(MappingTypes.YARN)) {
+        const yarn = document.createElement("td");
+        yarn.innerHTML = classData.mappings.get(MappingTypes.YARN) ?? "-";
+        row.appendChild(yarn);
+    }
+
+    row.onclick = () => {
+        if (selectedClass) selectedClass.classList.remove("selectedClass");
+        row.classList.add("selectedClass");
+        selectedClass = row;
+        loadClass(classData, enabledMappings, searchValue);
+    };
+
+    ClassTable.appendChild(row);
+}
+
+
+//class method + field display stuff
+function loadClass(classData: ClassData, enabledMappings: MappingTypes[], searchValue: string) {
+    selectedMethod = null;
+    MethodTable.innerHTML = "";
+    ParamsTable.innerHTML = "";
+    FieldTable.innerHTML = "";
+
+    //methods
+    for (const [methodName, methodData] of classData.methods) {
+        if (!methodName) continue;
+        const row = document.createElement("tr");
+        const obf = document.createElement("td");
+        row.classList.add("MethodRow");
+        obf.innerHTML = methodName;
+        row.appendChild(obf);
+
+        if (enabledMappings.includes(MappingTypes.MOJMAP)) {
+            const mojang = document.createElement("td");
+            mojang.innerHTML = methodData.mappings.get(MappingTypes.MOJMAP) ?? "-";
+            if (mojang.innerHTML != "-" && mojangSignatureCheck.checked) {
+                mojang.innerHTML += methodData.transformDescriptor(MappingTypes.MOJMAP);
+            }
+            row.appendChild(mojang);
+        }
+
+        if (enabledMappings.includes(MappingTypes.SRG)) {
+            const srg = document.createElement("td");
+            srg.innerHTML = methodData.mappings.get(MappingTypes.SRG) ?? "-";
+            if (srg.innerHTML != "-" && srgSignatureCheck.checked) {
+                srg.innerHTML += methodData.transformDescriptor(MappingTypes.SRG);
+            }
+            row.appendChild(srg);
+        }
+
+        if (enabledMappings.includes(MappingTypes.MCP)) {
+            const mcp = document.createElement("td");
+            mcp.innerHTML = methodData.mappings.get(MappingTypes.MCP) ?? methodData.mappings.get(MappingTypes.SRG) ?? "-";
+            if (mcp.innerHTML != "-" && mcpSignatureCheck.checked) {
+                mcp.innerHTML += methodData.transformDescriptor(MappingTypes.MCP);
+            }
+            row.appendChild(mcp);
+        }
+
+        if (enabledMappings.includes(MappingTypes.INTERMEDIARY)) {
+            const yarnIntermediary = document.createElement("td");
+            yarnIntermediary.innerHTML = methodData.mappings.get(MappingTypes.INTERMEDIARY) ?? "-";
+            if (yarnIntermediary.innerHTML != "-" && yarnIntermediarySignatureCheck.checked) {
+                yarnIntermediary.innerHTML += methodData.transformDescriptor(MappingTypes.INTERMEDIARY);
+            }
+            row.appendChild(yarnIntermediary);
+        }
+
+        if (enabledMappings.includes(MappingTypes.YARN)) {
+            const yarn = document.createElement("td");
+            yarn.innerHTML = methodData.mappings.get(MappingTypes.YARN) ?? methodData.mappings.get(MappingTypes.INTERMEDIARY) ?? "-";
+            if (yarn.innerHTML != "-" && yarnSignatureCheck.checked) {
+                yarn.innerHTML += methodData.transformDescriptor(MappingTypes.YARN);
+            }
+            row.appendChild(yarn);
+        }
+
+        row.onclick = () => {
+            if (selectedMethod) selectedMethod.classList.remove("selectedMethod");
+            row.classList.add("selectedMethod");
+            selectedMethod = row;
+            loadMethod(methodData, enabledMappings);
+        }
+
+        MethodTable.appendChild(row);
+    }
+
+    //@ts-ignore
+    if (searchValue != "") for (const child: HTMLElement of MethodTable.children) {
+        if (child.innerText.toLowerCase().includes(searchValue)) {
+            child.offsetParent?.scrollTo(0, child.offsetTop-(child.offsetHeight));
+            child.click();
+            break;
+        }
+    }
+
+    //fields
+    for (const [fieldName, fieldData] of classData.fields) {
+        if (!fieldName) continue;
+        const row = document.createElement("tr");
+        const obf = document.createElement("td");
+        obf.innerHTML = fieldName + ":" + fieldData.transformDescriptor(MappingTypes.OBF);
+        row.appendChild(obf);
+
+        if (enabledMappings.includes(MappingTypes.MOJMAP)) {
+            const mojang = document.createElement("td");
+            mojang.innerHTML = fieldData.mappings.get(MappingTypes.MOJMAP) ?? "-";
+            if (mojang.innerHTML != "-" && mojangSignatureCheck.checked) {
+                mojang.innerHTML += fieldData.transformDescriptor(MappingTypes.MOJMAP);
+            }
+            row.appendChild(mojang);
+        }
+
+        if (enabledMappings.includes(MappingTypes.SRG)) {
+            const srg = document.createElement("td");
+            srg.innerHTML = fieldData.mappings.get(MappingTypes.SRG) ?? "-";
+            if (srg.innerHTML != "-" && srgSignatureCheck.checked) {
+                srg.innerHTML += fieldData.transformDescriptor(MappingTypes.SRG);
+            }
+            row.appendChild(srg);
+        }
+
+        if (enabledMappings.includes(MappingTypes.MCP)) {
+            const mcp = document.createElement("td");
+            mcp.innerHTML = fieldData.mappings.get(MappingTypes.MCP) ?? fieldData.mappings.get(MappingTypes.SRG) ?? "-";
+            if (mcp.innerHTML != "-" && mcpSignatureCheck.checked) {
+                mcp.innerHTML += fieldData.transformDescriptor(MappingTypes.MCP);
+            }
+            row.appendChild(mcp);
+        }
+
+        if (enabledMappings.includes(MappingTypes.INTERMEDIARY)) {
+            const yarnIntermediary = document.createElement("td");
+            yarnIntermediary.innerHTML = fieldData.mappings.get(MappingTypes.INTERMEDIARY) ?? "-";
+            if (yarnIntermediary.innerHTML != "-" && yarnIntermediarySignatureCheck.checked) {
+                yarnIntermediary.innerHTML += fieldData.transformDescriptor(MappingTypes.INTERMEDIARY);
+            }
+            row.appendChild(yarnIntermediary);
+        }
+
+        if (enabledMappings.includes(MappingTypes.YARN)) {
+            const yarn = document.createElement("td");
+            yarn.innerHTML = fieldData.mappings.get(MappingTypes.YARN) ?? fieldData.mappings.get(MappingTypes.INTERMEDIARY) ?? "-";
+            if (yarn.innerHTML != "-" && yarnSignatureCheck.checked) {
+                yarn.innerHTML += fieldData.transformDescriptor(MappingTypes.YARN);
+            }
+            row.appendChild(yarn);
+        }
+
+        FieldTable.appendChild(row);
+    }
+}
+
+function loadMethod(methodData: MethodData, enabledMappings: MappingTypes[]) {
+    ParamsTable.innerHTML = "";
+
+    const params = new Set<number>();
+
+    if (enabledMappings.includes(MappingTypes.YARN)) {
+        for (const key of methodData.params.get(MappingTypes.YARN)?.keys() ?? []) {
+            params.add(key);
+        }
+    }
+
+    if (enabledMappings.includes(MappingTypes.MCP)) {
+        for (const key of methodData.params.get(MappingTypes.MCP)?.keys() ?? []) {
+            params.add(key);
+        }
+    }
+
+    for (const param of params.keys()) {
+        const row = document.createElement("tr");
+        const num = document.createElement("td");
+        num.innerHTML = param.toString();
+        row.appendChild(num);
+
+        if (mcpMappingCheck.checked) {
+            const mcp = document.createElement("td");
+            mcp.innerHTML = methodData.params.get(MappingTypes.MCP)?.get(param) ?? "-";
+            row.appendChild(mcp);
+        }
+
+        if (yarnMappingCheck.checked) {
+            const yarn = document.createElement("td");
+            yarn.innerHTML = methodData.params.get(MappingTypes.YARN)?.get(param) ?? "-";
+            row.appendChild(yarn);
+        }
+
+        ParamsTable.appendChild(row);
+    }
+}
+
+let selectedMethod: HTMLTableRowElement | null = null;
+declare const mojangSignatureCheck: HTMLInputElement;
+declare const srgSignatureCheck: HTMLInputElement;
+declare const mcpSignatureCheck: HTMLInputElement;
+declare const yarnIntermediarySignatureCheck: HTMLInputElement;
+declare const yarnSignatureCheck: HTMLInputElement;
+declare const settingsBtn: HTMLDivElement;
+declare const closeSettings: HTMLDivElement;
+declare const settings: HTMLDivElement;
 
 (() => {
     //load initial checks
@@ -625,5 +1162,12 @@ async function search(value: string, type: SearchType) {
         }
     });
 
+    settingsBtn.addEventListener("click", () => {
+        // @ts-ignore
+        settings.style.display = null;
+    });
 
+    closeSettings.addEventListener("click", () => {
+        settings.style.display = "none";
+    });
 })();
