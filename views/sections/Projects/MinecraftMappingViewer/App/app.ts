@@ -1,6 +1,5 @@
 import * as jsz from "jszip";
 import { JSZipObject } from "jszip";
-import { query } from "express";
 
 export = 0;
 
@@ -10,6 +9,7 @@ declare const versionSelect: HTMLSelectElement;
 declare const showSnapshots: HTMLInputElement;
 declare const searchInput: HTMLInputElement;
 declare const loadingProfiler: HTMLParagraphElement;
+declare const mojangConfirmPrompt: HTMLDivElement;
 
 const NO_CORS_BYPASS = "https://cors.wagyourtail.xyz";
 
@@ -17,12 +17,18 @@ const zip = new JSZip();
 let mcManifest: MCVersionManifest;
 let yarnManifest: YarnVersionManifest;
 let mcpManifest: MCPVersionManifest;
+let parchmentManifest: ParchmentVersionManifest;
 
+let confirmMojang: boolean = false;
 let mappings: ClassMappings;
 
 type ReleaseVersion = `${number}.${number}` | `${number}.${number}.${number}`;
 type Snapshot = `${number}w${number}${"a"|"b"|"c"|"d"|"e"}` | `${ReleaseVersion}-pre${number}` | `${ReleaseVersion}-rc${number}`;
 type MCVersionSlug =  ReleaseVersion | Snapshot;
+
+interface ParchmentVersionManifest {
+    [mcversion: string]: string[]
+}
 
 interface MCVersionManifest {
     latest: {
@@ -147,12 +153,44 @@ async function loadMinecraftVersions() {
         });
     }
 
+
+    // load parchment versions
+    // TODO: fix the cors proxy so this works...
+    if (parchmentManifest == null) {
+        parchmentManifest = {}
+        // for (const mcVersion of ["1.16.5", "1.17", "1.17.1"]) {
+        //     const xmlParse = new DOMParser();
+        //     profiler(`Getting Parchment ${mcVersion} Versions`);
+        //
+        //     const parchmentRes = await fetch(`${NO_CORS_BYPASS}/https://ldtteam.jfrog.io/ui/native/parchmentmc-public/org/parchmentmc/data/parchment-${mcVersion}/maven-metadata.xml`, {headers: {"User-Agent": "wagyourtail.xyz/mcmappings", Accept: "*/*", "content-type": "text/xml"}});
+        //     profilerDel(`Getting Parchment ${mcVersion} Versions`);
+        //     const interXML = xmlParse.parseFromString(await parchmentRes.text(), "text/xml");
+        //     parchmentManifest[mcVersion] = Array.from(interXML.getElementsByTagName("versions")[0].children).map(e => e.innerHTML).reverse();
+        // }
+    }
+
     const rawParams = window.location.search?.substring(1);
     if (rawParams) {
         const params = new Map(<[string, string][]>window.location.search.substring(1).split("&").map(e => e.split("=", 2)));
         if (params.has("mapping")) {
             for (const map of params.get("mapping")?.split(",") ?? []) {
-                localStorage.setItem(map.trim()+"MappingCheck.value", "true");
+                switch (map.trim()) {
+                    case MappingTypes[MappingTypes.SRG]:
+                        srgMappingCheck.checked = true;
+                        break;
+                    case MappingTypes[MappingTypes.MCP]:
+                        mcpMappingCheck.checked = true;
+                        break;
+                    case MappingTypes[MappingTypes.MOJMAP]:
+                        mojangMappingCheck.checked = true;
+                        break;
+                    case MappingTypes[MappingTypes.INTERMEDIARY]:
+                        yarnIntermediaryMappingCheck.checked = true;
+                        break;
+                    case MappingTypes[MappingTypes.YARN]:
+                        yarnMappingCheck.checked = true;
+                        break;
+                }
             }
         }
         if (params.has("search")) {
@@ -224,16 +262,81 @@ class ClassMappings {
 
     constructor(mcversion: MCVersionSlug) {
         this.mcversion = mcversion;
+        this.updateAvailableVersionsDropdown();
+    }
+
+    reverseTransformDesc(desc: string, from: MappingTypes): string {
+        if (from == MappingTypes.OBF) return desc;
+        return desc.replace(/L(.+?);/g, (match, p1) => {
+            for (const clazz of this.classes.values()) {
+                if (clazz.getMapping(from) === p1) {
+                    return `L${clazz.obfName};`;
+                }
+            }
+            return `L${p1};`;
+        });
+    }
+
+    updateAvailableVersionsDropdown() {
+        //MCP
+        mcpVersionSelect.innerHTML = "";
+        for (const version of mcpManifest[this.mcversion]?.stable ?? []) {
+            const option = document.createElement("option");
+            option.innerHTML = option.value = `stable-${version}`;
+            mcpVersionSelect.appendChild(option);
+        }
+
+        for (const version of mcpManifest[this.mcversion]?.snapshot ?? []) {
+            const option = document.createElement("option");
+            option.innerHTML = option.value = `snapshot-${version}`;
+            mcpVersionSelect.appendChild(option);
+        }
+
+        //YARN
+        yarnVersionSelect.innerHTML = "";
+
+        for (const version of yarnManifest[this.mcversion].reverse() ?? []) {
+            const option = document.createElement("option");
+            option.value = version.toString();
+            option.innerHTML = `build.${version}`;
+            yarnVersionSelect.appendChild(option);
+        }
+
+        //PARCHMENT
+        //TODO
     }
 
     async loadEnabledMappings(enabledMappings: MappingTypes[]) {
         const newMappings = enabledMappings.filter(e => !this.loadedMappings.has(e));
+        if (enabledMappings.includes(MappingTypes.MOJMAP)) {
+            await this.getMojangMappings();
+        }
 
+        if (enabledMappings.includes(MappingTypes.PARCHMENT)) {
+            await this.getParchmentMappings(parchmentVersionSelect.value);
+        }
 
+        if (enabledMappings.includes(MappingTypes.SRG)) {
+            await this.getSrgMappings();
+        }
+
+        if (enabledMappings.includes(MappingTypes.MCP)) {
+            const parts = mcpVersionSelect.value.split("-");
+            await this.getMCPMappings(<any>parts[0], parts[1]);
+        }
+
+        if (enabledMappings.includes(MappingTypes.INTERMEDIARY)) {
+            await this.getIntermediaryMappings();
+        }
+
+        if (enabledMappings.includes(MappingTypes.YARN)) {
+            await this.getYarnMappings(parseInt(yarnVersionSelect.value));
+        }
     }
 
     async getMojangMappings() {
         if (this.loadedMappings.has(MappingTypes.MOJMAP)) return;
+
         let vers: string | null = null;
 
         for (const version of mcManifest.versions) {
@@ -258,7 +361,17 @@ class ClassMappings {
         if (request.status !== 200) return;
         const mappings = (await request.text()).split("<").join("&lt;").split(">").join("&gt;").split(".").join("/");
         profilerDel("Downloading Mojang Mappings");
+
         await this.loadMojangMappings(mappings);
+
+        if (!confirmMojang && mojangMappingCheck.checked) {
+            // @ts-ignore
+            mojangConfirmPrompt.style.display = null;
+            results.style.visibility = "hidden";
+        } else {
+            mojangConfirmPrompt.style.display = "none";
+            results.style.visibility = "visible";
+        }
     }
 
     async loadMojangMappings(proguard_mappings: string) {
@@ -304,19 +417,17 @@ class ClassMappings {
         // reverse reversed mappings and change method descriptors to correct format.
         reversedMappings.forEach((mappings, named) => {
             if (!mappings.obf) return;
-            const classData = new ClassData(mappings.obf.replace(".", "/"));
+            const classData = this.classes.get(mappings.obf.replace(".", "/")) ?? new ClassData(this, mappings.obf.replace(".", "/"));
             classData.mappings.set(MappingTypes.MOJMAP, named.replace(".", "/"));
 
             mappings.methods.forEach((methodMappings, named) => {
-                const md = new MethodData(this, methodMappings.obf, ClassMappings.transformProguardDescriptors(reversedMappings, methodMappings.params + methodMappings.retval))
-                md.addMapping(MappingTypes.MOJMAP, named);
-                classData.methods.set(md.getKey(), md);
+                const md = classData.getOrAddMethod(methodMappings.obf, ClassMappings.transformProguardDescriptors(reversedMappings, methodMappings.params + methodMappings.retval), MappingTypes.OBF);
+                md?.addMapping(MappingTypes.MOJMAP, named);
             });
 
             mappings.fields.forEach((fieldMappings, named) => {
-                const fd = new FieldData(this, fieldMappings.obf, ClassMappings.transformProguardDescriptors(reversedMappings, fieldMappings.desc));
-                fd.addMapping(MappingTypes.MOJMAP, named);
-                classData.fields.set(fd.getKey(), fd);
+                const fd = classData.getOrAddField(fieldMappings.obf, ClassMappings.transformProguardDescriptors(reversedMappings, fieldMappings.desc), MappingTypes.OBF);
+                fd?.addMapping(MappingTypes.MOJMAP, named);
             });
 
             this.classes.set(mappings.obf.replace(".", "/"), classData);
@@ -331,15 +442,15 @@ class ClassMappings {
         if (desc.includes("(")) {
             const match = desc.match(/\((.*)\)(.+)/);
             if (!match) throw new Error(`proguard method descriptor bad format "${desc}"`);
-            if (match[1] == "") return "()" + ClassMappings.transformProguardClass(reversedMappings.get(match[2])?.obf ?? match[2])
-            return match[1].split(",").map(e => ClassMappings.transformProguardClass(reversedMappings.get(e)?.obf ?? e)).join("") + ClassMappings.transformProguardClass(reversedMappings.get(match[2])?.obf ?? match[2]);
+            if (match[1] == "") return "()" + ClassMappings.transformProguardClass(reversedMappings, match[2])
+            return `(${match[1].split(",").map(e => ClassMappings.transformProguardClass(reversedMappings, e)).join("")})${ClassMappings.transformProguardClass(reversedMappings, match[2])}`;
         //field
         } else {
-            return ClassMappings.transformProguardClass(reversedMappings.get(desc)?.obf ?? desc);
+            return ClassMappings.transformProguardClass(reversedMappings, desc);
         }
     }
 
-    private static transformProguardClass(clazz: string): string {
+    private static transformProguardClass(reversedMappings: Map<string, ReversedMappings>, clazz: string): string {
         const dims = (clazz.match(/\[\]/g) ?? []).length;
         let sig: string;
         switch (clazz.replace("[]", "")) {
@@ -371,7 +482,8 @@ class ClassMappings {
                 sig = "V";
                 break;
             default:
-                sig = `L${clazz.replace("[]", "").replace(".", "/")};`
+                const cName = clazz.replace("[]", "").replace(".", "/");
+                sig = `L${reversedMappings.get(cName)?.obf ?? cName};`
         }
         for (let i = 0; i < dims; ++i) {
             sig = "[" + sig;
@@ -379,15 +491,19 @@ class ClassMappings {
         return sig;
     }
 
-    async getParchmentMappings() {
+    async getParchmentMappings(version: string) {
         //TODO
     }
 
-    async loadParchmentMappings() {
-        if (!this.loadedMappings.add(MappingTypes.MOJMAP)) {
+    async loadParchmentMappings(mappings: string) {
+        profiler("Parsing Parchment Mappings");
+        if (!this.loadedMappings.has(MappingTypes.MOJMAP)) {
             await this.getMojangMappings();
         }
         //TODO
+
+        this.loadedMappings.add(MappingTypes.PARCHMENT);
+        profilerDel("Parsing Parchment Mappings");
     }
 
     async getSrgMappings() {
@@ -395,7 +511,12 @@ class ClassMappings {
     }
 
     async loadSRGMappings(srgVersion: SRGVersion, srg_mappings: string) {
+        profiler("Parsing SRG Mappings");
         //TODO
+
+
+        this.loadedMappings.add(MappingTypes.SRG);
+        profilerDel("Parsing SRG Mappings");
     }
 
     async getMCPMappings(channel: "stable" | "snapshot", version: string) {
@@ -403,29 +524,269 @@ class ClassMappings {
     }
 
     async loadMCPMappings(mcp_zip: JSZipObject) {
-        if (!this.loadedMappings.add(MappingTypes.SRG)) {
+        profiler("Parsing MCP Mappings");
+        if (!this.loadedMappings.has(MappingTypes.SRG)) {
             await this.getSrgMappings();
         }
         //TODO
+
+        this.loadedMappings.add(MappingTypes.MCP);
+        profilerDel("Parsing MCP Mappings");
     }
 
     async getIntermediaryMappings() {
-        //TODO
+        let res: Response;
+        profiler("Downloading Yarn Intermediary Mappings");
+        if (mcVersionCompare(this.mcversion, "1.14") != -1)
+            res = await fetch(`https://maven.fabricmc.net/net/fabricmc/intermediary/${this.mcversion}/intermediary-${this.mcversion}-v2.jar`);
+        else
+            res = await fetch(`${NO_CORS_BYPASS}/https://maven.legacyfabric.net/net/fabricmc/intermediary/${this.mcversion}/intermediary-${this.mcversion}-v2.jar`);
+        profilerDel("Downloading Yarn Intermediary Mappings");
+        const zipContent = await zip.loadAsync(await res.arrayBuffer());
+
+        const mappings = await zipContent.file("mappings/mappings.tiny")?.async("string");
+        if (mappings) {
+            await this.loadIntermediaryMappings(mappings);
+        } else {
+            console.error("ERROR PARSING INTERMEDIARY MAPPINGS ZIP!");
+        }
     }
 
     async loadIntermediaryMappings(int_mappings: string) {
-        //TODO
+        profiler("Parsing Intermediary Mappings");
+        const class_mappings = int_mappings.split("<").join("&lt;").split(">").join("&gt;").split("\nc").map(e => e.split("\n").map(c => c.split("\t", -1)));
+        const first_line = class_mappings.shift();
+        if (!first_line) {
+            console.error("ERROR PARSING INTERMEDIARY MAPPINGS FILE!");
+            return;
+        }
+
+        const reversed = first_line[0][3] === "intermediary";
+        if (reversed) {
+            //TODO, fix and remove
+            console.error("REVERSED INTERMEDIARY MAPPINGS!");
+            return;
+        }
+
+        let current_class: ClassData | null = null;
+        let current: ClassItem | null = null;
+        let current_param: string | null = null;
+        for (const clazz of class_mappings) {
+            const class_def = clazz.shift();
+            const obf = class_def?.[1];
+            const int = class_def?.[2];
+            if (!obf || !int) {
+                console.error("ERROR PARSING INTERMEDIARY MAPPINGS FILE, bad class definition???");
+                continue;
+            }
+            if (!this.classes.has(obf)) this.classes.set(obf, new ClassData(this, obf));
+            current_class = <ClassData>this.classes.get(obf);
+            current_class.addMapping(MappingTypes.INTERMEDIARY, int);
+
+            for (const item of clazz) {
+                //skip empty line
+                if (item.join("").trim() === "") continue;
+                switch (item[1]) {
+                    // class comment
+                    case "c":
+                        current_class.comments.set(MappingTypes.INTERMEDIARY, item.slice(2).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<"));
+                        break;
+                    // class method
+                    case "m":
+                        current = current_class.getOrAddMethod(item[3], item[2], MappingTypes.OBF);
+                        current?.addMapping(MappingTypes.INTERMEDIARY, item[4]);
+                        break;
+                    // class field
+                    case "f":
+                        current = current_class.getOrAddField(item[3], item[2], MappingTypes.OBF);
+                        current?.addMapping(MappingTypes.INTERMEDIARY, item[4]);
+                        break;
+                    case "":
+                        switch (item[2]) {
+                            // item comment
+                            case "c":
+                                current?.comments.set(MappingTypes.INTERMEDIARY, item.slice(3).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<"));
+                                break;
+                            // item param
+                            case "p":
+                                if (current && current instanceof MethodData) {
+                                    if (!current.params.has(MappingTypes.INTERMEDIARY)) current.params.set(MappingTypes.INTERMEDIARY, new Map());
+                                    current.params.get(MappingTypes.INTERMEDIARY)?.set(parseInt(item[3]), current_param = item[5]);
+                                } else {
+                                    console.error("ERROR PARSING INTERMEDIARY MAPPINGS FILE, param on field??? " + item.join(","));
+                                }
+                                break;
+                            case "":
+                                switch (item[3]) {
+                                    //param comment
+                                    case "c":
+                                        current?.comments.set(MappingTypes.INTERMEDIARY, (current?.comments.get(MappingTypes.INTERMEDIARY) ?? "") + `<br><p>${current_param} : ${item.slice(4).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<")}</p>`);
+                                        break;
+                                    default:
+                                        console.error("ERROR PARSING INTERMEDIARY MAPPINGS FILE, unknown item-item element: " + item.join(","));
+                                }
+                                break;
+                            default:
+                                console.error("ERROR PARSING INTERMEDIARY MAPPINGS FILE, unknown class item element: " + item.join(","));
+                        }
+                        break;
+                    default:
+                        console.error(item);
+                        console.error("ERROR PARSING INTERMEDIARY MAPPINGS FILE, unknown class element: " + item.join(","));
+                }
+            }
+
+        }
+
+
+        this.loadedMappings.add(MappingTypes.INTERMEDIARY);
+        profilerDel("Parsing Intermediary Mappings");
     }
 
     async getYarnMappings(version: number) {
-        //TODO
+        if (this.loadedMappings.has(MappingTypes.YARN)) this.clearMappings(MappingTypes.YARN);
+        profiler("Downloading Yarn Mappings");
+        let res: Response;
+        if (mcVersionCompare(this.mcversion, "1.14") != -1)
+            res = await fetch(`https://maven.fabricmc.net/net/fabricmc/yarn/${this.mcversion}+build.${version}/yarn-${this.mcversion}+build.${version}-v2.jar`);
+        else
+            res = await fetch(`${NO_CORS_BYPASS}/https://maven.legacyfabric.net/net/fabricmc/yarn/${this.mcversion}+build.${version}/yarn-${this.mcversion}+build.${version}-v2.jar`);
+        profilerDel("Downloading Yarn Mappings");
+        const zipContent = await zip.loadAsync(await res.arrayBuffer());
+        const mappings = await zipContent.file("mappings/mappings.tiny")?.async("string");
+        if (mappings) {
+            await this.loadYarnMappings(mappings);
+        } else {
+            console.error("ERROR PARSING YARN MAPPINGS ZIP!");
+        }
     }
 
     async loadYarnMappings(yarn_mappings: string) {
-        if (!this.loadedMappings.add(MappingTypes.INTERMEDIARY)) {
+        profiler("Parsing Yarn Mappings");
+        if (!this.loadedMappings.has(MappingTypes.INTERMEDIARY)) {
             await this.getIntermediaryMappings();
+            if (!this.loadedMappings.has(MappingTypes.INTERMEDIARY)) {
+                alert("FAILED TO LOAD INTERMEDIARY DEPENDENCY");
+                return;
+            }
         }
-        //TODO
+        const class_mappings = yarn_mappings.split("<").join("&lt;").split(">").join("&gt;").split("\nc").map(e => e.split("\n").map(c => c.split("\t", -1)));
+        const first_line = class_mappings.shift();
+        if (!first_line) {
+            console.error("ERROR PARSING YARN MAPPINGS FILE!");
+            return;
+        }
+
+        const reversed = first_line[0][3] === "named";
+        if (reversed) {
+            //TODO, fix and remove
+            console.error("ERROR REVERSED YARN MAPPINGS!");
+            return;
+        }
+
+        let current_class: ClassData | null = null;
+        let current: ClassItem | null = null;
+        let current_param: string | null = null;
+        for (const clazz of class_mappings) {
+            const class_def = clazz.shift();
+            const int = class_def?.[1];
+            const named = class_def?.[2];
+            if (!int || !named) {
+                console.error("ERROR PARSING YARN MAPPINGS FILE, bad class definition???");
+                continue;
+            }
+            for (const clazz of this.classes.values()) {
+                if (clazz.getMapping(MappingTypes.INTERMEDIARY) === int) {
+                    current_class = clazz;
+                    break;
+                }
+                if (clazz.getMapping(MappingTypes.OBF) === int) {
+                    current_class = clazz;
+                    break;
+                }
+            }
+            if (current_class == null) {
+                console.error("ERROR PARSING YARN MAPPINGS FILE, could not find intermediaries for class: " + int + " " + named);
+                continue;
+            }
+            current_class.addMapping(MappingTypes.YARN, named);
+
+            for (const item of clazz) {
+                //skip empty line
+                if (item.join("").trim() === "") continue;
+                switch (item[1]) {
+                    // class comment
+                    case "c":
+                        current_class.comments.set(MappingTypes.YARN, item.slice(2).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<"));
+                        break;
+                    // class method
+                    case "m":
+                        current = current_class.getOrAddMethod(item[3], item[2], MappingTypes.INTERMEDIARY);
+                        current?.addMapping(MappingTypes.YARN, item[4]);
+                        break;
+                    // class field
+                    case "f":
+                        current = current_class.getOrAddField(item[3], item[2], MappingTypes.INTERMEDIARY);
+                        current?.addMapping(MappingTypes.YARN, item[4]);
+                        break;
+                    case "":
+                        switch (item[2]) {
+                            // item comment
+                            case "c":
+                                current?.comments.set(MappingTypes.YARN, item.slice(3).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<"));
+                                break;
+                            // item param
+                            case "p":
+                                if (current && current instanceof MethodData) {
+                                    if (!current.params.has(MappingTypes.YARN)) current.params.set(MappingTypes.YARN, new Map());
+                                    current.params.get(MappingTypes.YARN)?.set(parseInt(item[3]), current_param = item[5]);
+                                } else {
+                                    console.error("ERROR PARSING YARN MAPPINGS FILE, param on field??? " + item.join(","));
+                                }
+                                break;
+                            case "":
+                                switch (item[3]) {
+                                    //param comment
+                                    case "c":
+                                        current?.comments.set(MappingTypes.YARN, (current?.comments.get(MappingTypes.YARN) ?? "") + `<br><p>${current_param} : ${item.slice(4).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<")}</p>`);
+                                        break;
+                                    default:
+                                        console.error("ERROR PARSING YARN MAPPINGS FILE, unknown item-item element: " + item.join(","));
+                                }
+                                break;
+                            default:
+                                console.error("ERROR PARSING YARN MAPPINGS FILE, unknown class item element: " + item.join(","));
+                        }
+                        break;
+                    default:
+                        console.error(item);
+                        console.error("ERROR PARSING YARN MAPPINGS FILE, unknown class element: " + item.join(","));
+                }
+            }
+
+        }
+
+
+
+
+        this.loadedMappings.add(MappingTypes.YARN);
+        profilerDel("Parsing Yarn Mappings");
+    }
+
+    async clearMappings(mappingType: MappingTypes) {
+        this.classes.forEach(clazz => {
+            clazz.mappings.delete(mappingType);
+            clazz.comments.delete(mappingType);
+            clazz.fields.forEach(field => {
+                field.mappings.delete(mappingType);
+                field.comments.delete(mappingType);
+            })
+            clazz.methods.forEach(method => {
+                method.params.delete(mappingType);
+                method.mappings.delete(mappingType);
+                method.comments.delete(mappingType);
+            })
+        })
     }
 }
 
@@ -471,7 +832,14 @@ abstract class ClassItem extends AbstractData {
         this.obfDesc = obfDesc;
     }
 
-    abstract transformDescriptor(MappingType: MappingTypes): string;
+    transformDescriptor(mappingType: MappingTypes): string {
+        if (MappingTypes.OBF == mappingType) {
+            return this.obfDesc;
+        }
+        return this.obfDesc.replace(/L(.+?);/g, (match, p1) => {
+            return `L${this.classMappings.classes.get(p1)?.mappings.get(mappingType) ?? p1};`;
+        });
+    }
 
     setDescriptor(mappingType: MappingTypes, desc: string) {
         if (mappingType === MappingTypes.OBF) {
@@ -487,6 +855,7 @@ abstract class ClassItem extends AbstractData {
         if (mappingType === MappingTypes.OBF) {
             return this.obfDesc;
         }
+        if (!this.descriptors.has(mappingType)) this.descriptors.set(mappingType, this.transformDescriptor(mappingType));
         return this.descriptors.get(mappingType);
     }
 
@@ -496,11 +865,6 @@ abstract class ClassItem extends AbstractData {
 class MethodData extends ClassItem {
     readonly params: Map<MappingTypes, Map<number, string>> = new Map();
 
-    transformDescriptor(MappingType: MappingTypes): string {
-        //TODO
-        return "";
-    }
-
     getKey(): string {
         return this.obfName + this.obfDesc;
     }
@@ -508,24 +872,44 @@ class MethodData extends ClassItem {
 }
 
 class FieldData extends ClassItem {
-    transformDescriptor(MappingType: MappingTypes): string {
-        //TODO
-        return "";
-    }
 
     getKey(): string {
         return this.obfName;
     }
 }
 
-class ClassData {
-    readonly obfName: string;
-    readonly mappings: Map<MappingTypes, string> = new Map();
+class ClassData extends AbstractData {
     fields: Map<string, FieldData> = new Map();
     methods: Map<string, MethodData> = new Map();
 
-    constructor(obfName: string) {
-        this.obfName = obfName;
+    constructor(mappings: ClassMappings, obfName: string) {
+        super(mappings, obfName);
+    }
+
+    getOrAddField(field_name: string, field_desc: string, mapping: MappingTypes): FieldData | null {
+        for (const [_, field] of this.fields.entries()) {
+            if (field.getMapping(mapping) === field_name || field.getMapping(MappingTypes.OBF) === field_name) {
+                return field;
+            }
+        }
+        const obfDesc = this.classMappings.reverseTransformDesc(field_desc, mapping);
+        if (mapping != MappingTypes.OBF) console.log(`adding ${this.obfName};${field_name}:${obfDesc}`)
+        const fd = new FieldData(this.classMappings, field_name, obfDesc);
+        this.fields.set(fd.getKey(), fd);
+        return fd;
+    }
+
+    getOrAddMethod(method_name: string, method_desc: string, mapping: MappingTypes): MethodData | null {
+        for (const [_, method] of this.methods.entries()) {
+            if ((method.getMapping(mapping) === method_name || method.getMapping(MappingTypes.OBF) === method_name) && method.getDescriptor(mapping) === method_desc) {
+                return method;
+            }
+        }
+        const obfDesc = this.classMappings.reverseTransformDesc(method_desc, mapping);
+        if (mapping != MappingTypes.OBF) console.log(`adding ${this.obfName};${method_name}${obfDesc}`)
+        const fd = new MethodData(this.classMappings, method_name, obfDesc);
+        this.methods.set(fd.getKey(), fd);
+        return fd;
     }
 }
 
@@ -564,6 +948,7 @@ declare const searchType: HTMLSelectElement;
 
 function getEnabledMappings(mcVersion: MCVersionSlug): MappingTypes[] {
     const checked: MappingTypes[] = [];
+
     if (mcVersionCompare(mcVersion, "1.14.4") != -1) {
         mojangMappingCheck.disabled = false;
         if (mojangMappingCheck.checked) {
@@ -571,6 +956,18 @@ function getEnabledMappings(mcVersion: MCVersionSlug): MappingTypes[] {
         }
     } else {
         mojangMappingCheck.disabled = true;
+    }
+
+    if (mcVersion in parchmentManifest) {
+        parchmentMappingCheck.disabled = false;
+        // @ts-ignore
+        parchmentVersionSelect.style.visibility = null;
+        if (parchmentMappingCheck.checked) {
+            checked.push(MappingTypes.PARCHMENT);
+        }
+    } else {
+        parchmentMappingCheck.disabled = true;
+        parchmentVersionSelect.style.visibility = "hidden";
     }
 
     if (mcVersion in yarnManifest) {
@@ -767,6 +1164,12 @@ async function setTopbars(enabled: MappingTypes[]) {
             yarn.innerHTML = "Yarn";
             paramsTableHead.appendChild(yarn);
         }
+
+        if (enabled.includes(MappingTypes.PARCHMENT)) {
+            const parchment = document.createElement("th");
+            parchment.innerHTML = "Parchment";
+            paramsTableHead.appendChild(parchment);
+        }
     }
 
     buildResize(classes);
@@ -831,7 +1234,7 @@ function createResizableColumn(col: HTMLTableHeaderCellElement, resizer: HTMLDiv
     };
 
     resizer.addEventListener('mousedown', mouseDownHandler);
-};
+}
 
 declare const ClassTable: HTMLTableElement;
 declare const MethodTable: HTMLTableElement;
@@ -854,12 +1257,41 @@ async function search(value: string, type: SearchType) {
     ParamsTable.innerHTML = "";
     FieldTable.innerHTML = "";
 
-    const classes = [];
     mappings.classes.forEach((classData, obfName) => {
-        if (value === "") addClass(classData, enabledMappings, "");
+        if (value === "") {
+            addClass(classData, enabledMappings, "");
+            return;
+        }
 
         if (type === SearchType.KEYWORD || type == SearchType.CLASS) {
+            for (let i = 0; i <= MappingTypes.YARN; ++i) {
+                if (classData.getMapping(i).toLowerCase().includes(value)) {
+                    addClass(classData, enabledMappings, value);
+                    return;
+                }
+            }
+        }
 
+        if (type === SearchType.KEYWORD || type == SearchType.METHOD) {
+            for (let i = 0; i <= MappingTypes.YARN; ++i) {
+                for (const method of classData.methods.values()) {
+                    if (method.getMapping(i).toLowerCase().includes(value)) {
+                        addClass(classData, enabledMappings, value);
+                        return;
+                    }
+                }
+            }
+        }
+
+        if (type === SearchType.KEYWORD || type == SearchType.FIELD) {
+            for (let i = 0; i <= MappingTypes.YARN; ++i) {
+                for (const field of classData.fields.values()) {
+                    if (field.getMapping(i).toLowerCase().includes(value)) {
+                        addClass(classData, enabledMappings, value);
+                        return;
+                    }
+                }
+            }
         }
     });
 
@@ -908,6 +1340,7 @@ async function addClass(classData: ClassData, enabledMappings: MappingTypes[], s
         row.classList.add("selectedClass");
         selectedClass = row;
         loadClass(classData, enabledMappings, searchValue);
+        loadComment(classData);
     };
 
     ClassTable.appendChild(row);
@@ -968,7 +1401,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
 
         if (enabledMappings.includes(MappingTypes.YARN)) {
             const yarn = document.createElement("td");
-            yarn.innerHTML = methodData.mappings.get(MappingTypes.YARN) ?? methodData.mappings.get(MappingTypes.INTERMEDIARY) ?? "-";
+            yarn.innerHTML = methodData.mappings.get(MappingTypes.YARN) ?? methodData.mappings.get(MappingTypes.YARN) ?? "-";
             if (yarn.innerHTML != "-" && yarnSignatureCheck.checked) {
                 yarn.innerHTML += methodData.transformDescriptor(MappingTypes.YARN);
             }
@@ -980,6 +1413,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             row.classList.add("selectedMethod");
             selectedMethod = row;
             loadMethod(methodData, enabledMappings);
+            loadComment(methodData);
         }
 
         MethodTable.appendChild(row);
@@ -999,6 +1433,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
         if (!fieldName) continue;
         const row = document.createElement("tr");
         const obf = document.createElement("td");
+        row.classList.add("FieldRow");
         obf.innerHTML = fieldName + ":" + fieldData.transformDescriptor(MappingTypes.OBF);
         row.appendChild(obf);
 
@@ -1047,6 +1482,10 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             row.appendChild(yarn);
         }
 
+        row.onclick = () => {
+            loadComment(fieldData);
+        }
+
         FieldTable.appendChild(row);
     }
 }
@@ -1068,29 +1507,58 @@ function loadMethod(methodData: MethodData, enabledMappings: MappingTypes[]) {
         }
     }
 
+    if (enabledMappings.includes(MappingTypes.PARCHMENT)) {
+        for (const key of methodData.params.get(MappingTypes.PARCHMENT)?.keys() ?? []) {
+            params.add(key);
+        }
+    }
+
     for (const param of params.keys()) {
         const row = document.createElement("tr");
         const num = document.createElement("td");
         num.innerHTML = param.toString();
         row.appendChild(num);
 
-        if (mcpMappingCheck.checked) {
+        if (enabledMappings.includes(MappingTypes.MCP)) {
             const mcp = document.createElement("td");
             mcp.innerHTML = methodData.params.get(MappingTypes.MCP)?.get(param) ?? "-";
             row.appendChild(mcp);
         }
 
-        if (yarnMappingCheck.checked) {
+        if (enabledMappings.includes(MappingTypes.YARN)) {
             const yarn = document.createElement("td");
             yarn.innerHTML = methodData.params.get(MappingTypes.YARN)?.get(param) ?? "-";
             row.appendChild(yarn);
         }
 
+        if (enabledMappings.includes(MappingTypes.PARCHMENT)) {
+            const parchment = document.createElement("td");
+            parchment.innerHTML = methodData.params.get(MappingTypes.PARCHMENT)?.get(param) ?? "-";
+            row.appendChild(parchment);
+        }
+
+
         ParamsTable.appendChild(row);
     }
 }
 
+declare const commentHolder: HTMLDivElement;
+
+function loadComment(data: AbstractData) {
+    commentHolder.innerHTML = "";
+    data.comments.forEach((comment, mapping) => {
+        const header = document.createElement("h4");
+        header.innerHTML = MappingTypes[mapping];
+        commentHolder.appendChild(header);
+        const content = document.createElement("p");
+        content.innerHTML = comment;
+        commentHolder.appendChild(content);
+    });
+}
+
 let selectedMethod: HTMLTableRowElement | null = null;
+declare const parchmentVersionSelect: HTMLSelectElement;
+declare const parchmentMappingCheck: HTMLInputElement;
 declare const mojangSignatureCheck: HTMLInputElement;
 declare const srgSignatureCheck: HTMLInputElement;
 declare const mcpSignatureCheck: HTMLInputElement;
@@ -1099,6 +1567,10 @@ declare const yarnSignatureCheck: HTMLInputElement;
 declare const settingsBtn: HTMLDivElement;
 declare const closeSettings: HTMLDivElement;
 declare const settings: HTMLDivElement;
+declare const mojangConfirm: HTMLDivElement;
+declare const mojangDeny: HTMLDivElement;
+declare const searchButton: HTMLDivElement;
+declare const resultsTable: HTMLDivElement;
 
 (() => {
     //load initial checks
@@ -1107,21 +1579,28 @@ declare const settings: HTMLDivElement;
     yarnMappingCheck.checked = localStorage.getItem("yarnMappingCheck.value") == "true";
     srgMappingCheck.checked = localStorage.getItem("srgMappingCheck.value") == "true";
     mcpMappingCheck.checked = localStorage.getItem("mcpMappingCheck.value") == "true";
+    parchmentMappingCheck.checked = localStorage.getItem("parchmentMappingCheck.value") == "true";
 
     versionSelect.addEventListener("change", async (e) => {
         await setLoading(true);
         mappings = new ClassMappings(<MCVersionSlug>(<HTMLSelectElement>e.target).value);
         localStorage.setItem("versionSelect.value", (<HTMLSelectElement>e.target).value);
-        mappings.loadEnabledMappings(getEnabledMappings(mappings.mcversion));
+        mappings.loadEnabledMappings(getEnabledMappings(mappings.mcversion)).then(() => {
+            search(searchInput.value, parseInt(searchType.value));
+        });
     });
 
     mcpVersionSelect.addEventListener("change", (e) => {
         const parts = (<HTMLSelectElement>e.target).value.split("-");
-        mappings.getMCPMappings(<any>parts[0], parts[1]);
+        mappings.getMCPMappings(<any>parts[0], parts[1]).then(() => {
+            search(searchInput.value, parseInt(searchType.value));
+        });
     });
 
     yarnVersionSelect.addEventListener("change", (e) => {
-        mappings.getYarnMappings(parseInt((<HTMLSelectElement>e.target).value));
+        mappings.getYarnMappings(parseInt((<HTMLSelectElement>e.target).value)).then(() => {
+            search(searchInput.value, parseInt(searchType.value));
+        });
     });
 
     searchInput.addEventListener("keyup", (e) => {
@@ -1132,33 +1611,67 @@ declare const settings: HTMLDivElement;
 
     //checkbox change events
     mojangMappingCheck.addEventListener("change", (e) => {
+        localStorage.setItem("mojangMappingCheck.value", (<HTMLInputElement>e.target).checked.toString());
         if ((<HTMLInputElement>e.target).checked) {
-            mappings.getMojangMappings();
+            mappings.getMojangMappings().then(() => {
+                search(searchInput.value, parseInt(searchType.value));
+            });
+        } else {
+            search(searchInput.value, parseInt(searchType.value));
+        }
+    });
+
+    parchmentMappingCheck.addEventListener("change", (e) => {
+        localStorage.setItem("parchmentMappingCheck.value", (<HTMLInputElement>e.target).checked.toString());
+        if ((<HTMLInputElement>e.target).checked) {
+            mappings.getParchmentMappings(parchmentVersionSelect.value).then(() => {
+                search(searchInput.value, parseInt(searchType.value));
+            });
+        } else {
+            search(searchInput.value, parseInt(searchType.value));
         }
     });
 
     srgMappingCheck.addEventListener("change", (e) => {
+        localStorage.setItem("srgMappingCheck.value", (<HTMLInputElement>e.target).checked.toString());
         if ((<HTMLInputElement>e.target).checked) {
             mappings.getSrgMappings();
+        } else {
+            search(searchInput.value, parseInt(searchType.value));
         }
     });
 
     mcpMappingCheck.addEventListener("change", (e) => {
-        const parts = (<HTMLSelectElement>e.target).value.split("-");
+        localStorage.setItem("mcpMappingCheck.value", (<HTMLInputElement>e.target).checked.toString());
+        const parts = mcpVersionSelect.value.split("-");
         if ((<HTMLInputElement>e.target).checked) {
-            mappings.getMCPMappings(<any>parts[0], parts[1]);
+            mappings.getMCPMappings(<any>parts[0], parts[1]).then(() => {
+                search(searchInput.value, parseInt(searchType.value));
+            });
+        } else {
+            search(searchInput.value, parseInt(searchType.value));
         }
     });
 
     yarnIntermediaryMappingCheck.addEventListener("change", (e) => {
+        localStorage.setItem("yarnIntermediaryMappingCheck.value", (<HTMLInputElement>e.target).checked.toString());
         if ((<HTMLInputElement>e.target).checked) {
-            mappings.getIntermediaryMappings();
+            mappings.getIntermediaryMappings().then(() => {
+                search(searchInput.value, parseInt(searchType.value));
+            });
+        } else {
+            search(searchInput.value, parseInt(searchType.value));
         }
     });
 
     yarnMappingCheck.addEventListener("change", (e) => {
+        localStorage.setItem("yarnMappingCheck.value", (<HTMLInputElement>e.target).checked.toString());
         if ((<HTMLInputElement>e.target).checked) {
-            mappings.getYarnMappings(parseInt((<HTMLSelectElement>e.target).value));
+            mappings.getYarnMappings(parseInt(yarnVersionSelect.value)).then(() => {
+                search(searchInput.value, parseInt(searchType.value));
+            });
+        } else {
+            search(searchInput.value, parseInt(searchType.value));
         }
     });
 
@@ -1170,4 +1683,55 @@ declare const settings: HTMLDivElement;
     closeSettings.addEventListener("click", () => {
         settings.style.display = "none";
     });
+
+    mojangConfirm.addEventListener("click", async () => {
+        confirmMojang = true;
+        mojangConfirmPrompt.style.display = "none";
+        results.style.visibility = "visible";
+    });
+
+    mojangDeny.addEventListener("click", async () => {
+        confirmMojang = false;
+
+        mojangMappingCheck.checked = false;
+        localStorage.setItem("mojangMappingCheck.value", false.toString());
+
+        await setLoading(true);
+        mojangConfirmPrompt.style.visibility = "hidden";
+        await mappings.clearMappings(MappingTypes.MOJMAP);
+        search(searchInput.value, parseInt(searchType.value));
+    });
+
+    searchButton.addEventListener("click", () => {
+        search(searchInput.value, parseInt(searchType.value));
+    })
+
+    loadMinecraftVersions().then(() => {
+        mappings.loadEnabledMappings(getEnabledMappings(mappings.mcversion)).then(() => {
+            search(searchInput.value, parseInt(searchType.value));
+        });
+    });
+
+    showSnapshots.addEventListener("change", (e) => {
+        versionSelect.innerHTML = "";
+
+        //add versions to drop-down
+        for (const version of mcManifest.versions) {
+            if (version.type === "release" || ((<HTMLInputElement>e.target).checked && version.type === "snapshot")) {
+                const option = document.createElement("option");
+                option.value = option.innerHTML = version.id;
+                versionSelect.appendChild(option);
+            }
+        }
+    });
 })();
+
+declare const topbar: HTMLDivElement;
+
+function windowResize() {
+    resultsTable.style.maxHeight = `${window.innerHeight-topbar.offsetHeight}px`
+}
+
+window.addEventListener('resize', windowResize);
+
+windowResize();

@@ -79,6 +79,11 @@ html
                                     input#mojangMappingCheck(type= "checkbox" disabled)
                                     |  Mojang
                             .mapping
+                                label(for="parchmentMappingCheck")
+                                    input#parchmentMappingCheck(type= "checkbox" disabled)
+                                    |  Parchment
+                                select#parchmentVersionSelect(style= "visibility: hidden;")
+                            .mapping
                                 label(for="srgMappingCheck")
                                     input#srgMappingCheck(type= "checkbox" disabled)
                                     |  SRG
@@ -152,36 +157,38 @@ html
                     div
                         .button#closeImport close
         #results(style= "visibility: hidden;")
-            table#classes(cellspacing= "0")
-                thead
-                    tr#classTableHead
-                        th obfuscated
-                        th intermediary
-                        th named
-                tbody#ClassTable
-            #methodData
-                table#method(cellspacing= "0")
+            #resultsTable
+                table#classes(cellspacing= "0")
                     thead
-                        tr#methodTableHead
+                        tr#classTableHead
+                            th obfuscated
+                            th intermediary
+                            th named
+                    tbody#ClassTable
+                #methodData
+                    table#method(cellspacing= "0")
+                        thead
+                            tr#methodTableHead
+                                th obfuscated
+                                th descriptor
+                                th intermediary
+                                th named
+                        tbody#MethodTable
+                    table#params(cellspacing= "0")
+                        thead
+                            tr#paramsTableHead
+                                th #
+                                th named
+                        tbody#ParamsTable
+                table#fields(cellspacing= "0")
+                    thead
+                        tr#fieldTableHead
                             th obfuscated
                             th descriptor
                             th intermediary
                             th named
-                    tbody#MethodTable
-                table#params(cellspacing= "0")
-                    thead
-                        tr#paramsTableHead
-                            th #
-                            th named
-                    tbody#ParamsTable
-            table#fields(cellspacing= "0")
-                thead
-                    tr#fieldTableHead
-                        th obfuscated
-                        th descriptor
-                        th intermediary
-                        th named
-                tbody#FieldTable
+                    tbody#FieldTable
+            #commentHolder
         script var module = {}
         script
             include App/app.js
