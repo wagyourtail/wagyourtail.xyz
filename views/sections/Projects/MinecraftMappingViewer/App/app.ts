@@ -11,7 +11,7 @@ declare const searchInput: HTMLInputElement;
 declare const loadingProfiler: HTMLParagraphElement;
 declare const mojangConfirmPrompt: HTMLDivElement;
 
-const NO_CORS_BYPASS = "https://cors.wagyourtail.xyz";
+const NO_CORS_BYPASS = "/Projects/CORS-Bypass/App";
 
 const zip = new JSZip();
 let mcManifest: MCVersionManifest;
@@ -95,7 +95,7 @@ async function loadMinecraftVersions() {
         const xmlParse = new DOMParser();
         profiler("Getting Legacy Yarn Versions");
         const intRes = await fetch(`${NO_CORS_BYPASS}/https://maven.legacyfabric.net/net/fabricmc/intermediary/maven-metadata.xml`);
-        profilerDel("Getting Legacy Yarn Versions")
+        profilerDel("Getting Legacy Yarn Versions");
         const interXML = xmlParse.parseFromString(await intRes.text(), "text/xml");
         Array.from(interXML.getElementsByTagName("versions")[0].children).forEach(e => {
             yarnManifest[e.innerHTML] = [];
@@ -155,18 +155,17 @@ async function loadMinecraftVersions() {
 
 
     // load parchment versions
-    // TODO: fix the cors proxy so this works...
     if (parchmentManifest == null) {
         parchmentManifest = {}
-        // for (const mcVersion of ["1.16.5", "1.17", "1.17.1"]) {
-        //     const xmlParse = new DOMParser();
-        //     profiler(`Getting Parchment ${mcVersion} Versions`);
-        //
-        //     const parchmentRes = await fetch(`${NO_CORS_BYPASS}/https://ldtteam.jfrog.io/ui/native/parchmentmc-public/org/parchmentmc/data/parchment-${mcVersion}/maven-metadata.xml`, {headers: {"User-Agent": "wagyourtail.xyz/mcmappings", Accept: "*/*", "content-type": "text/xml"}});
-        //     profilerDel(`Getting Parchment ${mcVersion} Versions`);
-        //     const interXML = xmlParse.parseFromString(await parchmentRes.text(), "text/xml");
-        //     parchmentManifest[mcVersion] = Array.from(interXML.getElementsByTagName("versions")[0].children).map(e => e.innerHTML).reverse();
-        // }
+        for (const mcVersion of ["1.16.5", "1.17", "1.17.1"]) {
+            const xmlParse = new DOMParser();
+            profiler(`Getting Parchment ${mcVersion} Versions`);
+
+            const parchmentRes = await fetch(`${NO_CORS_BYPASS}/https://ldtteam.jfrog.io/ui/api/v1/download?repoKey=parchmentmc-public&path=org%252Fparchmentmc%252Fdata%252Fparchment-${mcVersion}%252Fmaven-metadata.xml`);
+            profilerDel(`Getting Parchment ${mcVersion} Versions`);
+            const interXML = xmlParse.parseFromString(await parchmentRes.text(), "text/xml");
+            parchmentManifest[mcVersion] = Array.from(interXML.getElementsByTagName("versions")[0].children).map(e => e.innerHTML).reverse();
+        }
     }
 
     const rawParams = window.location.search?.substring(1);
@@ -295,7 +294,7 @@ class ClassMappings {
         //YARN
         yarnVersionSelect.innerHTML = "";
 
-        for (const version of yarnManifest[this.mcversion].reverse() ?? []) {
+        for (const version of yarnManifest[this.mcversion]?.reverse() ?? []) {
             const option = document.createElement("option");
             option.value = version.toString();
             option.innerHTML = `build.${version}`;
@@ -303,7 +302,13 @@ class ClassMappings {
         }
 
         //PARCHMENT
-        //TODO
+        parchmentVersionSelect.innerHTML = "";
+        for (const version of parchmentManifest[this.mcversion]?.sort().reverse() ?? []) {
+            const option = document.createElement("option");
+            option.value = version;
+            option.innerHTML = version;
+            parchmentVersionSelect.appendChild(option);
+        }
     }
 
     async loadEnabledMappings(enabledMappings: MappingTypes[]) {
@@ -332,6 +337,21 @@ class ClassMappings {
         if (enabledMappings.includes(MappingTypes.YARN)) {
             await this.getYarnMappings(parseInt(yarnVersionSelect.value));
         }
+    }
+
+    async getOrAddClass(class_name: string, mapping: MappingTypes) {
+        for (const clazz of this.classes.values()) {
+            if (clazz.getMapping(mapping) === class_name) {
+                return clazz;
+            }
+            if (clazz.getMapping(MappingTypes.OBF) === class_name) {
+                return clazz;
+            }
+        }
+        if (mapping !== MappingTypes.OBF) console.log(`adding class: ${class_name}`);
+        const clazz = new ClassData(this, class_name);
+        this.classes.set(class_name, clazz);
+        return clazz;
     }
 
     async getMojangMappings() {
@@ -492,7 +512,23 @@ class ClassMappings {
     }
 
     async getParchmentMappings(version: string) {
-        //TODO
+        profiler("Downloading Parchment Mappings");
+        let metaRes = await fetch(`http://localhost:8000/Projects/CORS-Bypass/App/https://ldtteam.jfrog.io/ui/api/v1/download?repoKey=parchmentmc-public&path=org%252Fparchmentmc%252Fdata%252Fparchment-${this.mcversion}%252F${version}%252Fmaven-metadata.xml`);
+
+        const xmlParse = new DOMParser();
+        const interXML = xmlParse.parseFromString(await metaRes.text(), "text/xml");
+        const versionName = interXML.getElementsByTagName("value")[0].innerHTML;
+
+        let res = await fetch(`http://localhost:8000/Projects/CORS-Bypass/App/https://ldtteam.jfrog.io/ui/api/v1/download?repoKey=parchmentmc-public&path=org%252Fparchmentmc%252Fdata%252Fparchment-${this.mcversion}%252F${version}%252Fparchment-${this.mcversion}-${versionName}-checked.zip`);
+        profilerDel("Downloading Parchment Mappings");
+
+        const zipContent = await zip.loadAsync(await res.arrayBuffer());
+        const content = await zipContent.file("parchment.json")?.async("string");
+        if (content) {
+            await this.loadParchmentMappings(content);
+        } else {
+            console.error("ERROR PARSING PARCHMENT MAPPINGS ZIP");
+        }
     }
 
     async loadParchmentMappings(mappings: string) {
@@ -500,7 +536,86 @@ class ClassMappings {
         if (!this.loadedMappings.has(MappingTypes.MOJMAP)) {
             await this.getMojangMappings();
         }
-        //TODO
+
+        interface ParchmentMappings {
+            version: string,
+            packages: {
+                name: string,
+                javadoc?: string[]
+            }[],
+            classes: {
+                name: string,
+                methods: {
+                    name: string,
+                    descriptor: string,
+                    javadoc?: string[],
+                    parameters: {
+                        index: number,
+                        name: string,
+                        javadoc?: string
+                    }[]
+                }[]
+                fields: {
+                    name: string,
+                    descriptor: string,
+                    javadoc?: string[]
+                }[],
+                javadoc?: string[]
+            }[]
+        }
+
+        const parchmentMappings: ParchmentMappings = JSON.parse(mappings);
+
+        for (const classMapping of parchmentMappings.classes) {
+            const clazz = await this.getOrAddClass(classMapping.name, MappingTypes.MOJMAP);
+
+            if (clazz === null) {
+                console.error("ERROR PARSING YARN MAPPINGS FILE, could not find mojmap for class: " + classMapping.name);
+                continue;
+            }
+
+            if (classMapping.javadoc) {
+                clazz.comments.set(MappingTypes.PARCHMENT, classMapping.javadoc.join("<br>"));
+            }
+
+            for (const methodMapping of classMapping.methods ?? []) {
+                const method = clazz.getOrAddMethod(methodMapping.name, methodMapping.descriptor, MappingTypes.MOJMAP);
+
+                if (method === null) {
+                    console.error("ERROR PARSING YARN MAPPINGS FILE, could not find mojmap for method: " + classMapping.name + ";" + methodMapping.name + methodMapping.descriptor);
+                    continue;
+                }
+
+                let methodDoc: string = methodMapping.javadoc?.join("<br>") ?? "";
+                const paramMap: Map<number, string> = new Map();
+
+                for (const paramMapping of methodMapping.parameters ?? []) {
+                    paramMap.set(paramMapping.index, paramMapping.name);
+                    if (paramMapping.javadoc) {
+                        methodDoc += `<p>@param ${paramMapping.name} ${paramMapping.javadoc}</p>`;
+                    }
+                }
+                method.params.set(MappingTypes.PARCHMENT, paramMap);
+
+
+                if (methodMapping.javadoc) {
+                    method.comments.set(MappingTypes.PARCHMENT, methodDoc);
+                }
+            }
+
+            for (const fieldMapping of classMapping.fields ?? []) {
+                const field = clazz.getOrAddField(fieldMapping.name, fieldMapping.descriptor, MappingTypes.MOJMAP);
+
+                if (field === null) {
+                    console.error("ERROR PARSING YARN MAPPINGS FILE, could not find mojmap for field: " + classMapping.name + ";" + fieldMapping.name + fieldMapping.descriptor);
+                    continue;
+                }
+
+                if (fieldMapping.javadoc) {
+                    field.comments.set(MappingTypes.PARCHMENT, fieldMapping.javadoc.join("<br>"));
+                }
+            }
+        }
 
         this.loadedMappings.add(MappingTypes.PARCHMENT);
         profilerDel("Parsing Parchment Mappings");
@@ -684,7 +799,6 @@ class ClassMappings {
             return;
         }
 
-        let current_class: ClassData | null = null;
         let current: ClassItem | null = null;
         let current_param: string | null = null;
         for (const clazz of class_mappings) {
@@ -695,17 +809,9 @@ class ClassMappings {
                 console.error("ERROR PARSING YARN MAPPINGS FILE, bad class definition???");
                 continue;
             }
-            for (const clazz of this.classes.values()) {
-                if (clazz.getMapping(MappingTypes.INTERMEDIARY) === int) {
-                    current_class = clazz;
-                    break;
-                }
-                if (clazz.getMapping(MappingTypes.OBF) === int) {
-                    current_class = clazz;
-                    break;
-                }
-            }
-            if (current_class == null) {
+
+            let current_class = await this.getOrAddClass(int, MappingTypes.INTERMEDIARY);
+            if (current_class === null) {
                 console.error("ERROR PARSING YARN MAPPINGS FILE, could not find intermediaries for class: " + int + " " + named);
                 continue;
             }
@@ -887,7 +993,7 @@ class ClassData extends AbstractData {
     }
 
     getOrAddField(field_name: string, field_desc: string, mapping: MappingTypes): FieldData | null {
-        for (const [_, field] of this.fields.entries()) {
+        for (const field of this.fields.values()) {
             if (field.getMapping(mapping) === field_name || field.getMapping(MappingTypes.OBF) === field_name) {
                 return field;
             }
@@ -900,7 +1006,7 @@ class ClassData extends AbstractData {
     }
 
     getOrAddMethod(method_name: string, method_desc: string, mapping: MappingTypes): MethodData | null {
-        for (const [_, method] of this.methods.entries()) {
+        for (const method of this.methods.values()) {
             if ((method.getMapping(mapping) === method_name || method.getMapping(MappingTypes.OBF) === method_name) && method.getDescriptor(mapping) === method_desc) {
                 return method;
             }
