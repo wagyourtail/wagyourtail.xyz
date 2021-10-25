@@ -1584,10 +1584,24 @@ declare const ClassTable: HTMLTableElement;
 declare const MethodTable: HTMLTableElement;
 declare const ParamsTable: HTMLTableElement;
 declare const FieldTable: HTMLTableElement;
+declare const versionData: HTMLParagraphElement;
 
 async function search(value: string, type: SearchType) {
+
     setLoading(true);
     const enabledMappings = getEnabledMappings(mappings.mcversion);
+    versionData.innerHTML = mappings.mcversion + ": " + enabledMappings.map(e => {
+        if (e == MappingTypes.PARCHMENT) {
+            return `${MappingTypes[e]} (${parchmentVersionSelect.value})`
+        }
+        if (e == MappingTypes.MCP) {
+            return `${MappingTypes[e]} (${mcpVersionSelect.value})`
+        }
+        if (e == MappingTypes.YARN) {
+            return `${MappingTypes[e]} (build.${yarnVersionSelect.value})`
+        }
+        return MappingTypes[e];
+    }).join(" | ");
     window.history.replaceState({}, '', `${window.location.href.split('?')[0]}?version=${versionSelect.value}&mapping=${enabledMappings.map(e => MappingTypes[e]).join(",")}&search=${value}`);
     profiler("Searching");
 
