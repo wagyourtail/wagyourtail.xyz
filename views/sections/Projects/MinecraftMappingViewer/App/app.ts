@@ -264,9 +264,9 @@ class ClassMappings {
         this.updateAvailableVersionsDropdown();
     }
 
-    reverseTransformDesc(desc: string, from: MappingTypes): string {
+    reverseTransformDesc(desc: string | null, from: MappingTypes): string | null {
         if (from == MappingTypes.OBF) return desc;
-        return desc.replace(/L(.+?);/g, (match, p1) => {
+        return (<string>desc).replace(/L(.+?);/g, (match, p1) => {
             for (const clazz of this.classes.values()) {
                 if (clazz.getMapping(from) === p1) {
                     return `L${clazz.obfName};`;
@@ -412,7 +412,7 @@ class ClassMappings {
             if (!cNamed) continue;
 
             const classItemData: ReversedMappings = {
-                obf: cNameData?.shift()?.trim().replace(":", ""),
+                obf: cNameData?.shift()?.trim().replace(/:/g, ""),
                 fields: new Map(),
                 methods: new Map()
             };
@@ -437,8 +437,8 @@ class ClassMappings {
         // reverse reversed mappings and change method descriptors to correct format.
         reversedMappings.forEach((mappings, named) => {
             if (!mappings.obf) return;
-            const classData = this.classes.get(mappings.obf.replace(".", "/")) ?? new ClassData(this, mappings.obf.replace(".", "/"));
-            classData.mappings.set(MappingTypes.MOJMAP, named.replace(".", "/"));
+            const classData = this.classes.get(mappings.obf.replace(/\./g, "/")) ?? new ClassData(this, mappings.obf.replace(/\./g, "/"));
+            classData.mappings.set(MappingTypes.MOJMAP, named.replace(/\./g, "/"));
 
             mappings.methods.forEach((methodMappings, named) => {
                 const md = classData.getOrAddMethod(methodMappings.obf, ClassMappings.transformProguardDescriptors(reversedMappings, methodMappings.params + methodMappings.retval), MappingTypes.OBF);
@@ -450,7 +450,7 @@ class ClassMappings {
                 fd?.addMapping(MappingTypes.MOJMAP, named);
             });
 
-            this.classes.set(mappings.obf.replace(".", "/"), classData);
+            this.classes.set(mappings.obf.replace(/\./g, "/"), classData);
         })
 
         this.loadedMappings.add(MappingTypes.MOJMAP);
@@ -473,7 +473,7 @@ class ClassMappings {
     private static transformProguardClass(reversedMappings: Map<string, ReversedMappings>, clazz: string): string {
         const dims = (clazz.match(/\[\]/g) ?? []).length;
         let sig: string;
-        switch (clazz.replace("[]", "")) {
+        switch (clazz.replace(/\[]/g, "")) {
             case "boolean":
                 sig = "Z";
                 break;
@@ -502,7 +502,7 @@ class ClassMappings {
                 sig = "V";
                 break;
             default:
-                const cName = clazz.replace("[]", "").replace(".", "/");
+                const cName = clazz.replace(/\[]/g, "").replace(/\./g, "/");
                 sig = `L${reversedMappings.get(cName)?.obf ?? cName};`
         }
         for (let i = 0; i < dims; ++i) {
@@ -579,7 +579,7 @@ class ClassMappings {
             }
 
             for (const methodMapping of classMapping.methods ?? []) {
-                const method = clazz.getOrAddMethod(methodMapping.name, methodMapping.descriptor, MappingTypes.MOJMAP);
+                const method = clazz.getOrAddMethod(methodMapping.name.split("<").join("&lt;").split(">").join("&gt;"), methodMapping.descriptor, MappingTypes.MOJMAP);
 
                 if (method === null) {
                     console.error("ERROR PARSING YARN MAPPINGS FILE, could not find mojmap for method: " + classMapping.name + ";" + methodMapping.name + methodMapping.descriptor);
@@ -622,28 +622,256 @@ class ClassMappings {
     }
 
     async getSrgMappings() {
-        //TODO
+        profiler("Downloading SRG Mappings");
+        let res;
+        if (mcVersionCompare(this.mcversion, "1.12.2") != -1) {
+            res = await fetch(`${NO_CORS_BYPASS}/https://files.minecraftforge.net/maven/de/oceanlabs/mcp/mcp_config/${this.mcversion}/mcp_config-${this.mcversion}.zip`);
+        } else {
+            res = await fetch(`${NO_CORS_BYPASS}/http://export.mcpbot.bspk.rs/mcp/${this.mcversion}/mcp-${this.mcversion}-srg.zip`);
+        }
+        profilerDel("Downloading SRG Mappings");
+        const zipContent = await zip.loadAsync(await res.arrayBuffer());
+        const file = zipContent.file("config/joined.tsrg");
+        if (file) {
+            const content = await file.async("string");
+            this.loadSRGMappings(content.startsWith("tsrg2") ? SRGVersion.TSRG2 : SRGVersion.TSRG, content);
+
+        } else {
+            const file = zipContent.file("joined.srg");
+            if (file) {
+                this.loadSRGMappings(SRGVersion.SRG, await file.async("string"));
+            } else {
+                alert("BROKEN MCPCONFIG DOWNLOAD!");
+            }
+        }
+
     }
 
     async loadSRGMappings(srgVersion: SRGVersion, srg_mappings: string) {
         profiler("Parsing SRG Mappings");
-        //TODO
-
-
+        srg_mappings = srg_mappings.split("<").join("&lt;").split(">").join("&gt;");
+        switch (srgVersion) {
+            case SRGVersion.SRG:
+                await this.loadSRG1Mappings(srg_mappings);
+                break
+            case SRGVersion.TSRG:
+                await this.loadTSRG1Mappings(srg_mappings);
+                break
+            case SRGVersion.TSRG2:
+                await this.loadTSRG2Mappings(srg_mappings);
+                break
+        }
         this.loadedMappings.add(MappingTypes.SRG);
         profilerDel("Parsing SRG Mappings");
     }
 
-    async getMCPMappings(channel: "stable" | "snapshot", version: string) {
-        //TODO
+    async loadSRG1Mappings(srg_mappings: string) {
+        const lines = srg_mappings.split("\n");
+        while (lines.length) {
+            const current_line = (<string>lines.shift()).split(/\s+/);
+            switch (current_line[0]) {
+                case "CL:":
+                    (await this.getOrAddClass(current_line[1], MappingTypes.OBF))?.addMapping(MappingTypes.SRG, current_line[2]);
+                    break;
+                case "FD": {
+                    const obf_parts = current_line[1].match(/(.+)\/([^\/]+)$/);
+                    const srg_parts = current_line[2].match(/(.+)\/([^\/]+)$/);
+                    const current_class = await this.getOrAddClass(<string>obf_parts?.[1], MappingTypes.OBF);
+                    const current_field = current_class.getOrAddField(<string>obf_parts?.[2], null, MappingTypes.OBF);
+                    current_field?.addMapping(MappingTypes.SRG, <string>srg_parts?.[2]);
+                    const id = <string>srg_parts?.[2].match(/\d+/)?.[0];
+                    if (!id) {
+                        console.warn(`NO NUMBERS IN SRG MAPPING??? "${current_line}"`);
+                        continue;
+                    }
+                    if (!this.srgFields.has(id)) this.srgFields.set(id, []);
+                    if (current_field) this.srgFields.get(id)?.push(current_field);
+                    break;
+                }
+                case "MD:": {
+                    const obf_parts = current_line[1].match(/(.+)\/([^\/]+)$/);
+                    const srg_parts = current_line[3].match(/(.+)\/([^\/]+)$/);
+                    const current_class = await this.getOrAddClass(<string>obf_parts?.[1], MappingTypes.OBF);
+                    const current_method = current_class.getOrAddMethod(<string>obf_parts?.[2], current_line[2], MappingTypes.OBF);
+                    current_method?.addMapping(MappingTypes.SRG, <string>srg_parts?.[2]);
+                    current_method?.setDescriptor(MappingTypes.SRG, current_line[4]);
+                    const id = <string>srg_parts?.[2].match(/\d+/)?.[0];
+                    if (!id) {
+                        console.warn(`NO NUMBERS IN SRG MAPPING??? "${current_line}"`);
+                        continue;
+                    }
+                    if (!this.srgMethods.has(id)) this.srgMethods.set(id, []);
+                    if (current_method) this.srgMethods.get(id)?.push(current_method);
+                    break;
+                }
+                case "PK:":
+                    break
+            }
+        }
     }
 
-    async loadMCPMappings(mcp_zip: JSZipObject) {
+    async loadTSRG1Mappings(tsrg_mappings: string) {
+        const lines = tsrg_mappings.split("\n");
+        let current_class: ClassData | null = null;
+        while (lines.length) {
+            const current_line = <string>lines.shift();
+            const indent = <string>current_line.match(/^\t*/)?.[0];
+            if (indent.length == 0) {
+                const cParts = current_line.trim().split(/\s+/);
+                current_class = await this.getOrAddClass(cParts[0], MappingTypes.OBF);
+                current_class.addMapping(MappingTypes.SRG, cParts[1]);
+            } else if (indent.length == 1) {
+                const fmParts = current_line.trim().split(/\s+/);
+                //field
+                if (fmParts.length == 2) {
+                    const current_field = current_class?.getOrAddField(fmParts[0], null, MappingTypes.OBF);
+                    current_field?.addMapping(MappingTypes.SRG, fmParts[1]);
+                    const id = fmParts[1].match(/\d+/)?.[0];
+                    if (!id) {
+                        console.warn(`NO NUMBERS IN SRG MAPPING??? "${current_line}"`);
+                        continue;
+                    }
+                    if (!this.srgFields.has(id)) this.srgFields.set(id, []);
+                    if (current_field) this.srgFields.get(id)?.push(current_field);
+                //method
+                } else {
+                    const current_method = current_class?.getOrAddMethod(fmParts[0], fmParts[1], MappingTypes.OBF);
+                    current_method?.addMapping(MappingTypes.SRG, fmParts[2]);
+                    const id = fmParts[2].match(/\d+/)?.[0];
+                    if (!id) {
+                        console.warn(`NO NUMBERS IN SRG MAPPING??? "${current_line}"`);
+                        continue;
+                    }
+                    if (!this.srgMethods.has(id)) this.srgMethods.set(id, []);
+                    if (current_method) this.srgMethods.get(id)?.push(current_method);
+                }
+            }
+        }
+
+    }
+
+    async loadTSRG2Mappings(tsrg2_mappings: string) {
+        const lines = tsrg2_mappings.split("\n");
+        lines.shift();
+        let current_class: ClassData | null = null;
+        let current_item: AbstractData | null | undefined = undefined;
+        while (lines.length) {
+            const current_line = <string>lines.shift();
+            const indent = <string>current_line.match(/^\t*/)?.[0];
+            if (indent.length == 0) {
+                const cParts = current_line.trim().split(/\s+/);
+                current_class = await this.getOrAddClass(cParts[0], MappingTypes.OBF);
+                current_class.addMapping(MappingTypes.SRG, cParts[1]);
+            } else if (indent.length == 1) {
+                const fmParts = current_line.trim().split(/\s+/);
+                //field
+                if (fmParts.length == 3) {
+                    current_item = current_class?.getOrAddField(fmParts[0], null, MappingTypes.OBF);
+                    current_item?.addMapping(MappingTypes.SRG, fmParts[1]);
+                    if (!this.srgFields.has(fmParts[2])) this.srgFields.set(fmParts[2], []);
+                    if (current_item) this.srgFields.get(fmParts[2])?.push(<FieldData>current_item);
+                //method
+                } else {
+                    current_item = current_class?.getOrAddMethod(fmParts[0], fmParts[1], MappingTypes.OBF);
+                    current_item?.addMapping(MappingTypes.SRG, fmParts[2]);
+                    if (!this.srgMethods.has(fmParts[3])) this.srgMethods.set(fmParts[3], []);
+                    if (current_item) this.srgMethods.get(fmParts[3])?.push(<MethodData>current_item);
+                }
+            //param
+            } else if (indent.length == 2) {
+                const pParts = current_line.trim().split(/\s+/);
+                // verify cus things like "static" are at this level too
+                if (pParts.length == 4) {
+                    if (current_item instanceof MethodData) {
+                        if (!current_item.params.has(MappingTypes.SRG)) current_item.params.set(MappingTypes.SRG, new Map());
+                        current_item.params.get(MappingTypes.SRG)?.set(parseInt(pParts[0]), pParts[2]);
+                        if (!this.srgMethods.has(pParts[3])) this.srgMethods.set(pParts[3], []);
+                        this.srgMethods.get(pParts[3])?.push(current_item);
+                    }
+                }
+            }
+        }
+    }
+
+
+
+    async getMCPMappings(channel: "stable" | "snapshot", version: string) {
+        profiler("Downloading MCP Mappings");
+        const res = await fetch(`${NO_CORS_BYPASS}/https://files.minecraftforge.net/maven/de/oceanlabs/mcp/mcp_${channel}/${version}-${this.mcversion}/mcp_${channel}-${version}-${this.mcversion}.zip`);
+        profilerDel("Downloading MCP Mappings");
+
+        await this.loadMCPMappings(await zip.loadAsync(await res.arrayBuffer()));
+    }
+
+    async loadMCPMappings(mcp_zip: {file(path: string): JSZipObject | null}) {
         profiler("Parsing MCP Mappings");
         if (!this.loadedMappings.has(MappingTypes.SRG)) {
             await this.getSrgMappings();
         }
-        //TODO
+
+        const fields = await mcp_zip.file("fields.csv")?.async("string");
+        const methods = await mcp_zip.file("methods.csv")?.async("string");
+        const params = await mcp_zip.file("params.csv")?.async("string");
+
+        if (fields) {
+            const field_list = fields.split("\n");
+            field_list.shift() // remove header
+            while (field_list.length) {
+                const current_field = field_list.shift()?.split(",").map(e => e.trim());
+                if (!current_field || current_field.length <= 1) continue;
+                const id = current_field[0].match(/\d+/)?.[0];
+                if (!id) {
+                    console.warn(`NO NUMBERS IN SRG (mcp) MAPPING??? "${current_field}"`);
+                    continue;
+                }
+                for (const field of this.srgFields.get(id) ?? []) {
+                    if (field.getMapping(MappingTypes.SRG) == current_field[0]) field.addMapping(MappingTypes.MCP, current_field[1], current_field[3]);
+                }
+            }
+        }
+
+        if (methods) {
+            const method_list = methods.split("\n");
+            method_list.shift() // remove header
+            while (method_list.length) {
+                const current_method = method_list.shift()?.split(",").map(e => e.trim());
+                if (!current_method || current_method.length <= 1) continue;
+                const id = current_method[0].match(/\d+/)?.[0];
+                if (!id) {
+                    console.warn(`NO NUMBERS IN SRG (mcp) MAPPING??? "${current_method}"`);
+                    continue;
+                }
+                for (const method of this.srgMethods.get(id) ?? []) {
+                    if (method.getMapping(MappingTypes.SRG) == current_method[0]) method.addMapping(MappingTypes.MCP, current_method[1], current_method[3]);
+                }
+            }
+        }
+
+        if (params) {
+            const param_list = params.split("\n");
+            param_list.shift() //remove header
+            while (param_list.length) {
+                const current_param = param_list.shift()?.split(",").map(e => e.trim());
+                if (!current_param || current_param.length <= 1) continue;
+                const srg_parts = current_param[0].replace(/_/g, " ").trim().split(" ");
+                //new params (tsrg2), this shouldn't be used as I didn't add 1.17 mcp mappings to the override list
+                if (srg_parts.length == 2) {
+                    for (const method of this.srgMethods.get(srg_parts[1]) ?? []) {
+                        for (const paramEntry of method.params.get(MappingTypes.SRG)?.entries() ?? []) {
+                            if (paramEntry[1] == current_param[0]) {
+                                if (!method.params.has(MappingTypes.MCP)) method.params.set(MappingTypes.MCP, new Map());
+                                method.params.get(MappingTypes.MCP)?.set(paramEntry[0], current_param[1]);
+                            }
+                        }
+                    }
+                } else {
+                    for (const method of this.srgMethods.get(srg_parts[1]) ?? []) {
+                        if (!method.params.has(MappingTypes.MCP)) method.params.set(MappingTypes.MCP, new Map());
+                        method.params.get(MappingTypes.MCP)?.set(parseInt(srg_parts[2]), current_param[1])
+                    }
+                }
+            }
+        }
 
         this.loadedMappings.add(MappingTypes.MCP);
         profilerDel("Parsing MCP Mappings");
@@ -660,7 +888,7 @@ class ClassMappings {
         const zipContent = await zip.loadAsync(await res.arrayBuffer());
 
         const mappings = await zipContent.file("mappings/mappings.tiny")?.async("string");
-        if (mappings) {
+        if (mappings) {~
             await this.loadIntermediaryMappings(mappings);
         } else {
             console.error("ERROR PARSING INTERMEDIARY MAPPINGS ZIP!");
@@ -880,6 +1108,10 @@ class ClassMappings {
     }
 
     async clearMappings(mappingType: MappingTypes) {
+        if (mappingType == MappingTypes.SRG) {
+            this.srgMethods.clear();
+            this.srgFields.clear();
+        }
         this.classes.forEach(clazz => {
             clazz.mappings.delete(mappingType);
             clazz.comments.delete(mappingType);
@@ -930,15 +1162,16 @@ abstract class AbstractData {
 }
 
 abstract class ClassItem extends AbstractData {
-    protected readonly obfDesc: string;
+    protected obfDesc: string | null;
     protected readonly descriptors: Map<MappingTypes, string> = new Map();
 
-    constructor(classMappings: ClassMappings, obfName: string, obfDesc: string) {
+    constructor(classMappings: ClassMappings, obfName: string, obfDesc: string | null) {
         super(classMappings, obfName);
         this.obfDesc = obfDesc;
     }
 
-    transformDescriptor(mappingType: MappingTypes): string {
+    transformDescriptor(mappingType: MappingTypes): string | null {
+        if (this.obfDesc == null) return null;
         if (MappingTypes.OBF == mappingType) {
             return this.obfDesc;
         }
@@ -949,10 +1182,9 @@ abstract class ClassItem extends AbstractData {
 
     setDescriptor(mappingType: MappingTypes, desc: string) {
         if (mappingType === MappingTypes.OBF) {
-            throw new Error("Tried to change obf descriptor!");
-        }
-        if (!this.descriptors.has(mappingType)) {
-            this.setDescriptor(mappingType, this.transformDescriptor(mappingType));
+            if (this.obfDesc != null) throw new Error("Tried to change obf descriptor!");
+            else this.obfDesc = desc;
+            return
         }
         this.descriptors.set(mappingType, desc);
     }
@@ -961,7 +1193,13 @@ abstract class ClassItem extends AbstractData {
         if (mappingType === MappingTypes.OBF) {
             return this.obfDesc;
         }
-        if (!this.descriptors.has(mappingType)) this.descriptors.set(mappingType, this.transformDescriptor(mappingType));
+        if (!this.descriptors.has(mappingType)) {
+            const newDesc = this.transformDescriptor(mappingType);
+            if (newDesc) {
+                this.descriptors.set(mappingType, newDesc);
+            }
+            return newDesc;
+        }
         return this.descriptors.get(mappingType);
     }
 
@@ -992,7 +1230,7 @@ class ClassData extends AbstractData {
         super(mappings, obfName);
     }
 
-    getOrAddField(field_name: string, field_desc: string, mapping: MappingTypes): FieldData | null {
+    getOrAddField(field_name: string, field_desc: string | null, mapping: MappingTypes): FieldData | null {
         for (const field of this.fields.values()) {
             if (field.getMapping(mapping) === field_name || field.getMapping(MappingTypes.OBF) === field_name) {
                 return field;

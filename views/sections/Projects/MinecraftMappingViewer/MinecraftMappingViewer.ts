@@ -8,10 +8,9 @@ if (!globalThis.fetch) {
 class MappingViewerListener extends PageListener {
     registerExtraListeners(app: Express) {
         app.get("/Projects/MinecraftMappingViewer/App", (req, res) => {
-            res.render("sections/Projects/MinecraftMappingViewer/App");
+            res.render("sections/Projects/MinecraftMappingViewer/app");
         })
         app.get("/Projects/CORS-Bypass/App/*", async (req, res) => {
-            console.log(req.url);
             const requrl = req.url.split("App/")[1];
             try {
                 const response = await fetch(requrl, { headers: {"User-Agent": "Wagyourtail/CorsProxy"}});
