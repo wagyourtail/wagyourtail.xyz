@@ -1,2 +1,0 @@
-# wagyourtail.xyz
-my website
