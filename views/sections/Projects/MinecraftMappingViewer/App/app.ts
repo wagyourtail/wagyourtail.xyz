@@ -634,12 +634,12 @@ class ClassMappings {
         const file = zipContent.file("config/joined.tsrg");
         if (file) {
             const content = await file.async("string");
-            this.loadSRGMappings(content.startsWith("tsrg2") ? SRGVersion.TSRG2 : SRGVersion.TSRG, content);
+            await this.loadSRGMappings(content.startsWith("tsrg2") ? SRGVersion.TSRG2 : SRGVersion.TSRG, content);
 
         } else {
             const file = zipContent.file("joined.srg");
             if (file) {
-                this.loadSRGMappings(SRGVersion.SRG, await file.async("string"));
+                await this.loadSRGMappings(SRGVersion.SRG, await file.async("string"));
             } else {
                 alert("BROKEN MCPCONFIG DOWNLOAD!");
             }
