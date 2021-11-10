@@ -18,6 +18,8 @@ let mcManifest: MCVersionManifest;
 let yarnManifest: YarnVersionManifest;
 let mcpManifest: MCPVersionManifest;
 let parchmentManifest: ParchmentVersionManifest;
+let hashedMojmapManifest: HashedMojmapManifest;
+let quiltManifest: QuiltManifest;
 
 let confirmMojang: boolean = false;
 let mappings: ClassMappings;
@@ -28,6 +30,14 @@ type MCVersionSlug =  ReleaseVersion | Snapshot;
 
 interface ParchmentVersionManifest {
     [mcversion: string]: string[]
+}
+
+interface HashedMojmapManifest {
+    [mcversion: string]: string
+}
+
+interface QuiltManifest {
+    [mcversion: string]: number[]
 }
 
 interface MCVersionManifest {
@@ -68,11 +78,17 @@ async function loadMinecraftVersions() {
 
     //add versions to drop-down
     for (const version of mcManifest.versions) {
-        if (version.type === "release" || (showSnapshots.checked && version.type === "snapshot")) {
-            const option = document.createElement("option");
-            option.value = option.innerHTML = version.id;
-            versionSelect.appendChild(option);
+        const option = document.createElement("option");
+        option.value = option.innerHTML = version.id;
+        if (version.type === "snapshot") {
+            option.classList.add("MCSnapshot");
+            if (!showSnapshots.checked) {
+                option.setAttribute("hidden", "");
+            }
+        } else {
+            option.classList.add("MCRelease");
         }
+        versionSelect.appendChild(option);
     }
 
     //set default from localStorage if exists
@@ -168,7 +184,45 @@ async function loadMinecraftVersions() {
         }
     }
 
-    //TODO: quilt
+    // hashed mojmap versions
+    if (hashedMojmapManifest == null) {
+        hashedMojmapManifest = {};
+        let metaRes: Response;
+        profiler("Downloading Hashed Mojmap Mappings");
+
+        metaRes = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/snapshot/org/quiltmc/hashed-mojmap/maven-metadata.xml`);
+        const xmlParse = new DOMParser();
+        const interXML = xmlParse.parseFromString(await metaRes.text(), "text/xml");
+        for (const version of Array.from(interXML.getElementsByTagName("version"))) {
+            hashedMojmapManifest[version.innerHTML.split("-")[0]] = "hashed-mojmap";
+        }
+
+        metaRes = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/snapshot/org/quiltmc/hashed/maven-metadata.xml`);
+        const interXML2 = xmlParse.parseFromString(await metaRes.text(), "text/xml");
+        for (const version of Array.from(interXML2.getElementsByTagName("version"))) {
+            hashedMojmapManifest[version.innerHTML.split("-")[0]] = "hashed";
+        }
+        profilerDel("Downloading Hashed Mojmap Mappings");
+    }
+
+    // quilt versions
+    if (quiltManifest == null) {
+        quiltManifest = {};
+        let metaRes: Response;
+        profiler("Downloading Quilt Mappings");
+
+        metaRes = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/release/org/quiltmc/quilt-mappings/maven-metadata.xml`);
+        const xmlParse = new DOMParser();
+        const interXML = xmlParse.parseFromString(await metaRes.text(), "text/xml");
+        for (const version of Array.from(interXML.getElementsByTagName("version"))) {
+            const versionParts = version.innerHTML.split("+build.");
+            if (!quiltManifest[versionParts[0]]) quiltManifest[versionParts[0]] = [];
+            quiltManifest[versionParts[0]].push(parseInt(versionParts[1]));
+        }
+
+        profilerDel("Downloading Quilt Mappings");
+    }
+
 
     const rawParams = window.location.search?.substring(1);
     if (rawParams) {
@@ -190,6 +244,12 @@ async function loadMinecraftVersions() {
                         break;
                     case MappingTypes[MappingTypes.YARN]:
                         yarnMappingCheck.checked = true;
+                        break;
+                    case MappingTypes[MappingTypes.HASHED]:
+                        hashedMojmapCheck.checked = true;
+                        break;
+                    case MappingTypes[MappingTypes.QUILT]:
+                        quiltMappingCheck.checked = true;
                         break;
                 }
             }
@@ -351,7 +411,14 @@ class ClassMappings {
             parchmentVersionSelect.appendChild(option);
         }
 
-        //TODO: Quilt
+        // QUILT
+        quiltVersionSelect.innerHTML = "";
+        for (const version of quiltManifest[this.mcversion]?.reverse() ?? []) {
+            const option = document.createElement("option");
+            option.value = version.toString();
+            option.innerHTML = `build.${version}`;
+            quiltVersionSelect.appendChild(option);
+        }
     }
 
     async loadEnabledMappings(enabledMappings: MappingTypes[]) {
@@ -381,7 +448,13 @@ class ClassMappings {
             await this.getYarnMappings(parseInt(yarnVersionSelect.value));
         }
 
-        //TODO: hashed + quilt
+        if (enabledMappings.includes(MappingTypes.HASHED)) {
+            await this.getHashedMappings();
+        }
+
+        if (enabledMappings.includes(MappingTypes.QUILT)) {
+            await this.getQuiltMappings(parseInt(quiltVersionSelect.value));
+        }
     }
 
     async getOrAddClass(class_name: string, mapping: MappingTypes) {
@@ -693,6 +766,7 @@ class ClassMappings {
     }
 
     async loadSRGMappings(srgVersion: SRGVersion, srg_mappings: string) {
+        if (this.loadedMappings.has(MappingTypes.SRG)) this.clearMappings(MappingTypes.SRG);
         profiler("Parsing SRG Mappings");
         srg_mappings = srg_mappings.split("<").join("&lt;").split(">").join("&gt;");
         switch (srgVersion) {
@@ -849,6 +923,7 @@ class ClassMappings {
     }
 
     async loadMCPMappings(mcp_zip: {file(path: string): JSZipObject | null}) {
+        if (this.loadedMappings.has(MappingTypes.MCP)) this.clearMappings(MappingTypes.MCP);
         profiler("Parsing MCP Mappings");
         if (!this.loadedMappings.has(MappingTypes.SRG)) {
             await this.getSrgMappings();
@@ -941,6 +1016,7 @@ class ClassMappings {
     }
 
     async loadIntermediaryMappings(int_mappings: string) {
+        if (this.loadedMappings.has(MappingTypes.INTERMEDIARY)) this.clearMappings(MappingTypes.INTERMEDIARY);
         profiler("Parsing Intermediary Mappings");
         const class_mappings = int_mappings.split("<").join("&lt;").split(">").join("&gt;").split("\nc").map(e => e.split("\n").map(c => c.split("\t", -1)));
         const first_line = class_mappings.shift();
@@ -957,7 +1033,6 @@ class ClassMappings {
     }
 
     async getYarnMappings(version: number) {
-        if (this.loadedMappings.has(MappingTypes.YARN)) this.clearMappings(MappingTypes.YARN);
         profiler("Downloading Yarn Mappings");
         let res: Response;
         if (mcVersionCompare(this.mcversion, "1.14") != -1)
@@ -975,6 +1050,7 @@ class ClassMappings {
     }
 
     async loadYarnMappings(yarn_mappings: string) {
+        if (this.loadedMappings.has(MappingTypes.YARN)) this.clearMappings(MappingTypes.YARN);
         profiler("Parsing Yarn Mappings");
         if (!this.loadedMappings.has(MappingTypes.INTERMEDIARY)) {
             await this.getIntermediaryMappings();
@@ -1091,19 +1167,73 @@ class ClassMappings {
     }
 
     async getHashedMappings() {
-        // TODO:
+        profiler("Downloading Yarn Intermediary Mappings");
+        const hashed = hashedMojmapManifest[this.mcversion];
+        let metaRes: Response = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/snapshot/org/quiltmc/${hashed}/${this.mcversion}-SNAPSHOT/maven-metadata.xml`);
+
+        const xmlParse = new DOMParser();
+        const interXML = xmlParse.parseFromString(await metaRes.text(), "text/xml");
+        const current = interXML.getElementsByTagName("snapshot")[0];
+        const timestamp = current.getElementsByTagName("timestamp")[0].innerHTML;
+        const build = current.getElementsByTagName("buildNumber")[0].innerHTML;
+
+
+        let res: Response = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/snapshot/org/quiltmc/${hashed}/${this.mcversion}-SNAPSHOT/${hashed}-${this.mcversion}-${timestamp}-${build}.jar`);
+        profilerDel("Downloading Yarn Intermediary Mappings");
+        const zipContent = await zip.loadAsync(await res.arrayBuffer());
+
+        const mappings = await zipContent.file("hashed/mappings.tiny")?.async("string");
+        if (mappings) {
+            await this.loadHashedMappings(mappings);
+        } else {
+            console.error("ERROR PARSING INTERMEDIARY MAPPINGS ZIP!");
+        }
     }
 
     async loadHashedMappings(hashed_mappings: string) {
-        // TODO:
+        if (this.loadedMappings.has(MappingTypes.HASHED)) this.clearMappings(MappingTypes.HASHED);
+        profiler("Parsing Hashed Mojmap Mappings");
+        const class_mappings = hashed_mappings.split("<").join("&lt;").split(">").join("&gt;").split("\nc").map(e => e.split("\n").map(c => c.split("\t", -1)));
+        const first_line = class_mappings.shift();
+        if (!first_line) {
+            console.error("ERROR PARSING HASHED MAPPINGS FILE!");
+            return;
+        }
+
+        await this.parseTinyFile(hashed_mappings, MappingTypes.OBF, MappingTypes.HASHED);
+
+        this.loadedMappings.add(MappingTypes.HASHED);
+        profilerDel("Parsing Hashed Mojmap Mappings");
     }
 
     async getQuiltMappings(version: number) {
-        // TODO:
+        profiler("Downloading Quilt Mappings");
+        let res: Response = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/release/org/quiltmc/quilt-mappings/${this.mcversion}+build.${version}/quilt-mappings-${this.mcversion}+build.${version}-v2.jar`);
+        profilerDel("Downloading Quilt Mappings");
+        const zipContent = await zip.loadAsync(await res.arrayBuffer());
+        const mappings = await zipContent.file("hashed/mappings.tiny")?.async("string");
+        if (mappings) {
+            await this.loadQuiltMappings(mappings);
+        } else {
+            console.error("ERROR PARSING QUILT MAPPINGS ZIP!");
+        }
     }
 
     async loadQuiltMappings(quilt_mappings: string) {
-        // TODO:
+        if (this.loadedMappings.has(MappingTypes.QUILT)) this.clearMappings(MappingTypes.QUILT);
+        profiler("Parsing Quilt Mappings");
+        if (!this.loadedMappings.has(MappingTypes.HASHED)) {
+            await this.getHashedMappings();
+            if (!this.loadedMappings.has(MappingTypes.HASHED)) {
+                alert("FAILED TO LOAD HASHED MOJMAP DEPENDENCY");
+                return;
+            }
+        }
+
+        await this.parseTinyFile(quilt_mappings, MappingTypes.HASHED, MappingTypes.QUILT);
+
+        this.loadedMappings.add(MappingTypes.QUILT);
+        profilerDel("Parsing Quilt Mappings");
     }
 
     async clearMappings(mappingType: MappingTypes) {
@@ -1124,6 +1254,7 @@ class ClassMappings {
                 method.comments.delete(mappingType);
             })
         })
+        this.loadedMappings.delete(mappingType);
     }
 }
 
@@ -1283,9 +1414,12 @@ declare const srgMappingCheck: HTMLInputElement;
 declare const mcpMappingCheck: HTMLInputElement;
 declare const yarnIntermediaryMappingCheck: HTMLInputElement;
 declare const yarnMappingCheck: HTMLInputElement;
+declare const hashedMojmapCheck: HTMLInputElement;
+declare const quiltMappingCheck: HTMLInputElement;
 
 declare const yarnVersionSelect: HTMLSelectElement;
 declare const mcpVersionSelect: HTMLSelectElement;
+declare const quiltVersionSelect: HTMLSelectElement;
 declare const searchType: HTMLSelectElement;
 
 
@@ -1355,7 +1489,26 @@ function getEnabledMappings(mcVersion: MCVersionSlug): MappingTypes[] {
         mcpVersionSelect.style.visibility = "hidden";
     }
 
-    //TODO: hashed + quilt
+    if (mcVersion in hashedMojmapManifest) {
+        hashedMojmapCheck.disabled = false;
+        if (hashedMojmapCheck.checked) {
+            checked.push(MappingTypes.HASHED);
+        }
+    } else {
+        hashedMojmapCheck.disabled = true;
+    }
+
+    if (mcVersion in quiltManifest) {
+        quiltMappingCheck.disabled = false;
+        // @ts-ignore
+        quiltVersionSelect.style.visibility = null;
+        if (quiltMappingCheck.checked) {
+            checked.push(MappingTypes.QUILT);
+        }
+    } else {
+        quiltMappingCheck.disabled = true;
+        quiltVersionSelect.style.visibility = "hidden";
+    }
 
     return checked;
 }
@@ -1376,8 +1529,6 @@ declare const params: HTMLTableElement;
 
 async function setTopbars(enabled: MappingTypes[]) {
     profiler("Updating Table Headers");
-
-    //TODO: add hashed + quilt
 
     //class
     {
@@ -1413,6 +1564,18 @@ async function setTopbars(enabled: MappingTypes[]) {
             const yarn = document.createElement("th");
             yarn.innerHTML = "Yarn";
             classTableHead.appendChild(yarn);
+        }
+
+        if (enabled.includes(MappingTypes.HASHED)) {
+            const hashed = document.createElement("th");
+            hashed.innerHTML = "Hashed Mojmap";
+            classTableHead.appendChild(hashed);
+        }
+
+        if (enabled.includes(MappingTypes.QUILT)) {
+            const quilt = document.createElement("th");
+            quilt.innerHTML = "Quilt";
+            classTableHead.appendChild(quilt);
         }
     }
 
@@ -1453,6 +1616,18 @@ async function setTopbars(enabled: MappingTypes[]) {
             yarn.innerHTML = "Yarn";
             methodTableHead.appendChild(yarn);
         }
+
+        if (enabled.includes(MappingTypes.HASHED)) {
+            const hashed = document.createElement("th");
+            hashed.innerHTML = "Hashed Mojmap";
+            methodTableHead.appendChild(hashed);
+        }
+
+        if (enabled.includes(MappingTypes.QUILT)) {
+            const quilt = document.createElement("th");
+            quilt.innerHTML = "Quilt";
+            methodTableHead.appendChild(quilt);
+        }
     }
 
     //field
@@ -1492,6 +1667,18 @@ async function setTopbars(enabled: MappingTypes[]) {
             yarn.innerHTML = "Yarn";
             fieldTableHead.appendChild(yarn);
         }
+
+        if (enabled.includes(MappingTypes.HASHED)) {
+            const hashed = document.createElement("th");
+            hashed.innerHTML = "Hashed Mojmap";
+            fieldTableHead.appendChild(hashed);
+        }
+
+        if (enabled.includes(MappingTypes.QUILT)) {
+            const quilt = document.createElement("th");
+            quilt.innerHTML = "Quilt";
+            fieldTableHead.appendChild(quilt);
+        }
     }
 
     //params
@@ -1517,6 +1704,12 @@ async function setTopbars(enabled: MappingTypes[]) {
             const parchment = document.createElement("th");
             parchment.innerHTML = "Parchment";
             paramsTableHead.appendChild(parchment);
+        }
+
+        if (enabled.includes(MappingTypes.QUILT)) {
+            const quilt = document.createElement("th");
+            quilt.innerHTML = "Quilt";
+            paramsTableHead.appendChild(quilt);
         }
     }
 
@@ -1596,13 +1789,16 @@ async function search(value: string, type: SearchType) {
     const enabledMappings = getEnabledMappings(mappings.mcversion);
     versionData.innerHTML = mappings.mcversion + ": " + enabledMappings.map(e => {
         if (e == MappingTypes.PARCHMENT) {
-            return `${MappingTypes[e]} (${parchmentVersionSelect.value})`
+            return `${MappingTypes[e]} (${parchmentVersionSelect.value})`;
         }
         if (e == MappingTypes.MCP) {
-            return `${MappingTypes[e]} (${mcpVersionSelect.value})`
+            return `${MappingTypes[e]} (${mcpVersionSelect.value})`;
         }
         if (e == MappingTypes.YARN) {
-            return `${MappingTypes[e]} (build.${yarnVersionSelect.value})`
+            return `${MappingTypes[e]} (build.${yarnVersionSelect.value})`;
+        }
+        if (e == MappingTypes.QUILT) {
+            return `${MappingTypes[e]} (build.${quiltVersionSelect.value})`;
         }
         return MappingTypes[e];
     }).join(" | ");
@@ -1697,7 +1893,17 @@ async function addClass(classData: ClassData, enabledMappings: MappingTypes[], s
         row.appendChild(yarn);
     }
 
-    //TODO: hashed + quilt
+    if (enabledMappings.includes(MappingTypes.HASHED)) {
+        const hashed = document.createElement("td");
+        hashed.innerHTML = classData.mappings.get(MappingTypes.HASHED) ?? "-";
+        row.appendChild(hashed);
+    }
+
+    if (enabledMappings.includes(MappingTypes.QUILT)) {
+        const quilt = document.createElement("td");
+        quilt.innerHTML = classData.mappings.get(MappingTypes.QUILT) ?? "-";
+        row.appendChild(quilt);
+    }
 
     row.onclick = () => {
         if (selectedClass) selectedClass.classList.remove("selectedClass");
@@ -1772,7 +1978,23 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             row.appendChild(yarn);
         }
 
-        // TODO: hashed + quilt
+        if (enabledMappings.includes(MappingTypes.HASHED)) {
+            const hashed = document.createElement("td");
+            hashed.innerHTML = methodData.mappings.get(MappingTypes.HASHED) ?? "-";
+            if (hashed.innerHTML != "-" && yarnSignatureCheck.checked) {
+                hashed.innerHTML += methodData.transformDescriptor(MappingTypes.HASHED);
+            }
+            row.appendChild(hashed);
+        }
+
+        if (enabledMappings.includes(MappingTypes.QUILT)) {
+            const quilt = document.createElement("td");
+            quilt.innerHTML = methodData.mappings.get(MappingTypes.QUILT) ?? methodData.mappings.get(MappingTypes.HASHED) ?? "-";
+            if (quilt.innerHTML != "-" && yarnSignatureCheck.checked) {
+                quilt.innerHTML += methodData.transformDescriptor(MappingTypes.QUILT);
+            }
+            row.appendChild(quilt);
+        }
 
         row.onclick = () => {
             if (selectedMethod) selectedMethod.classList.remove("selectedMethod");
@@ -1848,6 +2070,24 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             row.appendChild(yarn);
         }
 
+        if (enabledMappings.includes(MappingTypes.HASHED)) {
+            const hashed = document.createElement("td");
+            hashed.innerHTML = fieldData.mappings.get(MappingTypes.HASHED) ?? "-";
+            if (hashed.innerHTML != "-" && yarnSignatureCheck.checked) {
+                hashed.innerHTML += fieldData.transformDescriptor(MappingTypes.HASHED);
+            }
+            row.appendChild(hashed);
+        }
+
+        if (enabledMappings.includes(MappingTypes.QUILT)) {
+            const quilt = document.createElement("td");
+            quilt.innerHTML = fieldData.mappings.get(MappingTypes.QUILT) ?? fieldData.mappings.get(MappingTypes.HASHED) ?? "-";
+            if (quilt.innerHTML != "-" && yarnSignatureCheck.checked) {
+                quilt.innerHTML += fieldData.transformDescriptor(MappingTypes.QUILT);
+            }
+            row.appendChild(quilt);
+        }
+
         row.onclick = () => {
             loadComment(fieldData);
         }
@@ -1879,7 +2119,11 @@ function loadMethod(methodData: MethodData, enabledMappings: MappingTypes[]) {
         }
     }
 
-    // TODO: quilt
+    if (enabledMappings.includes(MappingTypes.QUILT)) {
+        for (const key of methodData.params.get(MappingTypes.QUILT)?.keys() ?? []) {
+            params.add(key);
+        }
+    }
 
     for (const param of params.keys()) {
         const row = document.createElement("tr");
@@ -1905,6 +2149,12 @@ function loadMethod(methodData: MethodData, enabledMappings: MappingTypes[]) {
             row.appendChild(parchment);
         }
 
+        if (enabledMappings.includes(MappingTypes.QUILT)) {
+            const parchment = document.createElement("td");
+            parchment.innerHTML = methodData.params.get(MappingTypes.QUILT)?.get(param) ?? "-";
+            row.appendChild(parchment);
+        }
+
 
         ParamsTable.appendChild(row);
     }
@@ -1915,6 +2165,7 @@ declare const commentHolder: HTMLDivElement;
 function loadComment(data: AbstractData) {
     commentHolder.innerHTML = "";
     data.comments.forEach((comment, mapping) => {
+        if (!getEnabledMappings(mappings.mcversion).includes(mapping)) return;
         const header = document.createElement("h4");
         header.innerHTML = MappingTypes[mapping];
         commentHolder.appendChild(header);
@@ -2043,7 +2294,27 @@ declare const resultsTable: HTMLDivElement;
         }
     });
 
-    //TODO: hashed + quilt
+    hashedMojmapCheck.addEventListener("change", (e) => {
+        localStorage.setItem("hashedMojmapCheck.value", (<HTMLInputElement>e.target).checked.toString());
+        if ((<HTMLInputElement>e.target).checked) {
+            mappings.getHashedMappings().then(() => {
+                search(searchInput.value, parseInt(searchType.value));
+            });
+        } else {
+            search(searchInput.value, parseInt(searchType.value));
+        }
+    });
+
+    quiltMappingCheck.addEventListener("change", (e) => {
+        localStorage.setItem("quiltMappingCheck.value", (<HTMLInputElement>e.target).checked.toString());
+        if ((<HTMLInputElement>e.target).checked) {
+            mappings.getQuiltMappings(parseInt(quiltVersionSelect.value)).then(() => {
+                search(searchInput.value, parseInt(searchType.value));
+            });
+        } else {
+            search(searchInput.value, parseInt(searchType.value));
+        }
+    });
 
     settingsBtn.addEventListener("click", () => {
         // @ts-ignore
@@ -2083,14 +2354,14 @@ declare const resultsTable: HTMLDivElement;
     });
 
     showSnapshots.addEventListener("change", (e) => {
-        versionSelect.innerHTML = "";
-
         //add versions to drop-down
-        for (const version of mcManifest.versions) {
-            if (version.type === "release" || ((<HTMLInputElement>e.target).checked && version.type === "snapshot")) {
-                const option = document.createElement("option");
-                option.value = option.innerHTML = version.id;
-                versionSelect.appendChild(option);
+        for (const version of Array.from(versionSelect.children)) {
+            if (version.classList.contains("MCSnapshot")) {
+                if ((<HTMLInputElement>e.target).checked) {
+                    version.removeAttribute("hidden");
+                } else {
+                    version.setAttribute("hidden", "");
+                }
             }
         }
     });
