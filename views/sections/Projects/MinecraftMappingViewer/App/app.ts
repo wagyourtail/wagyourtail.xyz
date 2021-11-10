@@ -168,6 +168,8 @@ async function loadMinecraftVersions() {
         }
     }
 
+    //TODO: quilt
+
     const rawParams = window.location.search?.substring(1);
     if (rawParams) {
         const params = new Map(<[string, string][]>window.location.search.substring(1).split("&").map(e => e.split("=", 2)));
@@ -235,7 +237,8 @@ enum MappingTypes {
     OBF,
     MOJMAP, PARCHMENT,
     SRG, MCP,
-    INTERMEDIARY, YARN
+    INTERMEDIARY, YARN,
+    HASHED, QUILT
 }
 
 enum SRGVersion {
@@ -266,12 +269,50 @@ class ClassMappings {
 
     reverseTransformDesc(desc: string | null, from: MappingTypes): string | null {
         if (from == MappingTypes.OBF) return desc;
+        let backup: MappingTypes | null = null;
+        switch (from) {
+            case MappingTypes.MCP:
+                backup = MappingTypes.SRG;
+                break;
+            case MappingTypes.YARN:
+                backup = MappingTypes.INTERMEDIARY;
+                break;
+            case MappingTypes.QUILT:
+                backup = MappingTypes.HASHED;
+                break;
+            default:
+        }
         return (<string>desc).replace(/L(.+?);/g, (match, p1) => {
             for (const clazz of this.classes.values()) {
                 if (clazz.getMapping(from) === p1) {
                     return `L${clazz.obfName};`;
                 }
+                if (backup && clazz.getMapping(backup) == p1) {
+                    return `L${clazz.obfName};`;
+                }
             }
+            return `L${p1};`;
+        });
+    }
+
+    transformDesc(desc: string | null, to: MappingTypes): string | null {
+        if (to == MappingTypes.OBF) return desc;
+        let backup: MappingTypes | null = null;
+        switch (to) {
+            case MappingTypes.MCP:
+                backup = MappingTypes.SRG;
+                break;
+            case MappingTypes.YARN:
+                backup = MappingTypes.INTERMEDIARY;
+                break;
+            case MappingTypes.QUILT:
+                backup = MappingTypes.HASHED;
+                break;
+            default:
+        }
+        return (<string>desc).replace(/L(.+?);/g, (match, p1) => {
+            const clazz = this.classes.get(p1);
+            p1 = clazz?.getMapping(to) ?? (backup ? clazz?.getMapping(backup) ?? p1 : p1);
             return `L${p1};`;
         });
     }
@@ -309,6 +350,8 @@ class ClassMappings {
             option.innerHTML = version;
             parchmentVersionSelect.appendChild(option);
         }
+
+        //TODO: Quilt
     }
 
     async loadEnabledMappings(enabledMappings: MappingTypes[]) {
@@ -337,6 +380,8 @@ class ClassMappings {
         if (enabledMappings.includes(MappingTypes.YARN)) {
             await this.getYarnMappings(parseInt(yarnVersionSelect.value));
         }
+
+        //TODO: hashed + quilt
     }
 
     async getOrAddClass(class_name: string, mapping: MappingTypes) {
@@ -904,82 +949,7 @@ class ClassMappings {
             return;
         }
 
-        const reversed = first_line[0][3] === "intermediary";
-        if (reversed) {
-            //TODO, fix and remove
-            console.error("REVERSED INTERMEDIARY MAPPINGS!");
-            return;
-        }
-
-        let current_class: ClassData | null = null;
-        let current: ClassItem | null = null;
-        let current_param: string | null = null;
-        for (const clazz of class_mappings) {
-            const class_def = clazz.shift();
-            const obf = class_def?.[1];
-            const int = class_def?.[2];
-            if (!obf || !int) {
-                console.error("ERROR PARSING INTERMEDIARY MAPPINGS FILE, bad class definition???");
-                continue;
-            }
-            if (!this.classes.has(obf)) this.classes.set(obf, new ClassData(this, obf));
-            current_class = <ClassData>this.classes.get(obf);
-            current_class.addMapping(MappingTypes.INTERMEDIARY, int);
-
-            for (const item of clazz) {
-                //skip empty line
-                if (item.join("").trim() === "") continue;
-                switch (item[1]) {
-                    // class comment
-                    case "c":
-                        current_class.comments.set(MappingTypes.INTERMEDIARY, item.slice(2).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<"));
-                        break;
-                    // class method
-                    case "m":
-                        current = current_class.getOrAddMethod(item[3], item[2], MappingTypes.OBF);
-                        current?.addMapping(MappingTypes.INTERMEDIARY, item[4]);
-                        break;
-                    // class field
-                    case "f":
-                        current = current_class.getOrAddField(item[3], item[2], MappingTypes.OBF);
-                        current?.addMapping(MappingTypes.INTERMEDIARY, item[4]);
-                        break;
-                    case "":
-                        switch (item[2]) {
-                            // item comment
-                            case "c":
-                                current?.comments.set(MappingTypes.INTERMEDIARY, item.slice(3).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<"));
-                                break;
-                            // item param
-                            case "p":
-                                if (current && current instanceof MethodData) {
-                                    if (!current.params.has(MappingTypes.INTERMEDIARY)) current.params.set(MappingTypes.INTERMEDIARY, new Map());
-                                    current.params.get(MappingTypes.INTERMEDIARY)?.set(parseInt(item[3]), current_param = item[5]);
-                                } else {
-                                    console.error("ERROR PARSING INTERMEDIARY MAPPINGS FILE, param on field??? " + item.join(","));
-                                }
-                                break;
-                            case "":
-                                switch (item[3]) {
-                                    //param comment
-                                    case "c":
-                                        current?.comments.set(MappingTypes.INTERMEDIARY, (current?.comments.get(MappingTypes.INTERMEDIARY) ?? "") + `<br><p>${current_param} : ${item.slice(4).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<")}</p>`);
-                                        break;
-                                    default:
-                                        console.error("ERROR PARSING INTERMEDIARY MAPPINGS FILE, unknown item-item element: " + item.join(","));
-                                }
-                                break;
-                            default:
-                                console.error("ERROR PARSING INTERMEDIARY MAPPINGS FILE, unknown class item element: " + item.join(","));
-                        }
-                        break;
-                    default:
-                        console.error(item);
-                        console.error("ERROR PARSING INTERMEDIARY MAPPINGS FILE, unknown class element: " + item.join(","));
-                }
-            }
-
-        }
+        await this.parseTinyFile(int_mappings, MappingTypes.OBF, MappingTypes.INTERMEDIARY);
 
 
         this.loadedMappings.add(MappingTypes.INTERMEDIARY);
@@ -1013,37 +983,57 @@ class ClassMappings {
                 return;
             }
         }
-        const class_mappings = yarn_mappings.split("<").join("&lt;").split(">").join("&gt;").split("\nc").map(e => e.split("\n").map(c => c.split("\t", -1)));
+
+        //yarn v2's are backwards from 1.14-1.14.2
+        const reversed = mcVersionCompare(this.mcversion, "1.14.2") < 1 && mcVersionCompare(this.mcversion, "1.14") > -1;
+
+        await this.parseTinyFile(yarn_mappings, MappingTypes.INTERMEDIARY, MappingTypes.YARN, reversed);
+
+        this.loadedMappings.add(MappingTypes.YARN);
+        profilerDel("Parsing Yarn Mappings");
+    }
+
+    async parseTinyFile(contents: string, mapping_From: MappingTypes, mapping_To: MappingTypes, reversed?: boolean) {
+        const class_mappings = contents.split("<").join("&lt;").split(">").join("&gt;").split("\nc").map(e => e.split("\n").map(c => c.split("\t", -1)));
         const first_line = class_mappings.shift();
         if (!first_line) {
             console.error("ERROR PARSING YARN MAPPINGS FILE!");
             return;
         }
 
-        const reversed = first_line[0][3] === "named";
-        if (reversed) {
-            //TODO, fix and remove
-            console.error("ERROR REVERSED YARN MAPPINGS!");
-            return;
-        }
-
         let current: ClassItem | null = null;
         let current_param: string | null = null;
+
         for (const clazz of class_mappings) {
-            const class_def = clazz.shift();
-            const int = class_def?.[1];
-            const named = class_def?.[2];
-            if (!int || !named) {
+            const class_def = clazz[0];
+            const from = class_def?.[reversed ? 2 : 1];
+            const to = class_def?.[reversed ? 1 : 2];
+            if (!from || !to) {
                 console.error("ERROR PARSING YARN MAPPINGS FILE, bad class definition???");
                 continue;
             }
 
-            let current_class = await this.getOrAddClass(int, MappingTypes.INTERMEDIARY);
+            let current_class = await this.getOrAddClass(from, mapping_From);
             if (current_class === null) {
-                console.error("ERROR PARSING YARN MAPPINGS FILE, could not find intermediaries for class: " + int + " " + named);
+                console.error("ERROR PARSING YARN MAPPINGS FILE, could not find intermediaries for class: " + from + " " + to);
                 continue;
             }
-            current_class.addMapping(MappingTypes.YARN, named);
+            current_class.addMapping(mapping_To, to);
+        }
+
+        for (const clazz of class_mappings) {
+            const class_def = clazz.shift();
+            const from = class_def?.[reversed ? 2 : 1];
+            const to = class_def?.[reversed ? 1 : 2];
+            if (!from || !to) {
+                console.error("ERROR PARSING YARN MAPPINGS FILE, bad class definition???");
+                continue;
+            }
+
+            let current_class = await this.getOrAddClass(from, mapping_From);
+            if (current_class === null) {
+                continue;
+            }
 
             for (const item of clazz) {
                 //skip empty line
@@ -1051,29 +1041,29 @@ class ClassMappings {
                 switch (item[1]) {
                     // class comment
                     case "c":
-                        current_class.comments.set(MappingTypes.YARN, item.slice(2).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<"));
+                        current_class.comments.set(mapping_To, item.slice(2).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<"));
                         break;
                     // class method
                     case "m":
-                        current = current_class.getOrAddMethod(item[3], item[2], MappingTypes.INTERMEDIARY);
-                        current?.addMapping(MappingTypes.YARN, item[4]);
+                        current = current_class.getOrAddMethod(item[reversed ? 4 : 3], reversed ? this.transformDesc(this.reverseTransformDesc(item[2], mapping_To), mapping_From) ?? item[2] : item[2], mapping_From);
+                        current?.addMapping(mapping_To, item[reversed ? 3 : 4]);
                         break;
                     // class field
                     case "f":
-                        current = current_class.getOrAddField(item[3], item[2], MappingTypes.INTERMEDIARY);
-                        current?.addMapping(MappingTypes.YARN, item[4]);
+                        current = current_class.getOrAddField(item[reversed ? 4 : 3], reversed ? this.transformDesc(this.reverseTransformDesc(item[2], mapping_To), mapping_From) ?? item[2] : item[2], mapping_From);
+                        current?.addMapping(mapping_To, item[reversed ? 3 : 4]);
                         break;
                     case "":
                         switch (item[2]) {
                             // item comment
                             case "c":
-                                current?.comments.set(MappingTypes.YARN, item.slice(3).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<"));
+                                current?.comments.set(mapping_To, item.slice(3).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<"));
                                 break;
                             // item param
                             case "p":
                                 if (current && current instanceof MethodData) {
-                                    if (!current.params.has(MappingTypes.YARN)) current.params.set(MappingTypes.YARN, new Map());
-                                    current.params.get(MappingTypes.YARN)?.set(parseInt(item[3]), current_param = item[5]);
+                                    if (!current.params.has(mapping_To)) current.params.set(mapping_To, new Map());
+                                    current.params.get(mapping_To)?.set(parseInt(item[3]), current_param = item[5]);
                                 } else {
                                     console.error("ERROR PARSING YARN MAPPINGS FILE, param on field??? " + item.join(","));
                                 }
@@ -1082,7 +1072,7 @@ class ClassMappings {
                                 switch (item[3]) {
                                     //param comment
                                     case "c":
-                                        current?.comments.set(MappingTypes.YARN, (current?.comments.get(MappingTypes.YARN) ?? "") + `<br><p>${current_param} : ${item.slice(4).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<")}</p>`);
+                                        current?.comments.set(mapping_To, (current?.comments.get(mapping_To) ?? "") + `<br><p>${current_param} : ${item.slice(4).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<")}</p>`);
                                         break;
                                     default:
                                         console.error("ERROR PARSING YARN MAPPINGS FILE, unknown item-item element: " + item.join(","));
@@ -1097,14 +1087,23 @@ class ClassMappings {
                         console.error("ERROR PARSING YARN MAPPINGS FILE, unknown class element: " + item.join(","));
                 }
             }
-
         }
+    }
 
+    async getHashedMappings() {
+        // TODO:
+    }
 
+    async loadHashedMappings(hashed_mappings: string) {
+        // TODO:
+    }
 
+    async getQuiltMappings(version: number) {
+        // TODO:
+    }
 
-        this.loadedMappings.add(MappingTypes.YARN);
-        profilerDel("Parsing Yarn Mappings");
+    async loadQuiltMappings(quilt_mappings: string) {
+        // TODO:
     }
 
     async clearMappings(mappingType: MappingTypes) {
@@ -1356,6 +1355,8 @@ function getEnabledMappings(mcVersion: MCVersionSlug): MappingTypes[] {
         mcpVersionSelect.style.visibility = "hidden";
     }
 
+    //TODO: hashed + quilt
+
     return checked;
 }
 
@@ -1375,6 +1376,9 @@ declare const params: HTMLTableElement;
 
 async function setTopbars(enabled: MappingTypes[]) {
     profiler("Updating Table Headers");
+
+    //TODO: add hashed + quilt
+
     //class
     {
         classTableHead.innerHTML = "";
@@ -1622,7 +1626,7 @@ async function search(value: string, type: SearchType) {
         }
 
         if (type === SearchType.KEYWORD || type == SearchType.CLASS) {
-            for (let i = 0; i <= MappingTypes.YARN; ++i) {
+            for (let i = 0; i <= MappingTypes.QUILT; ++i) {
                 if (classData.getMapping(i).toLowerCase().includes(value)) {
                     addClass(classData, enabledMappings, value);
                     return;
@@ -1631,7 +1635,7 @@ async function search(value: string, type: SearchType) {
         }
 
         if (type === SearchType.KEYWORD || type == SearchType.METHOD) {
-            for (let i = 0; i <= MappingTypes.YARN; ++i) {
+            for (let i = 0; i <= MappingTypes.QUILT; ++i) {
                 for (const method of classData.methods.values()) {
                     if (method.getMapping(i).toLowerCase().includes(value)) {
                         addClass(classData, enabledMappings, value);
@@ -1642,7 +1646,7 @@ async function search(value: string, type: SearchType) {
         }
 
         if (type === SearchType.KEYWORD || type == SearchType.FIELD) {
-            for (let i = 0; i <= MappingTypes.YARN; ++i) {
+            for (let i = 0; i <= MappingTypes.QUILT; ++i) {
                 for (const field of classData.fields.values()) {
                     if (field.getMapping(i).toLowerCase().includes(value)) {
                         addClass(classData, enabledMappings, value);
@@ -1692,6 +1696,8 @@ async function addClass(classData: ClassData, enabledMappings: MappingTypes[], s
         yarn.innerHTML = classData.mappings.get(MappingTypes.YARN) ?? "-";
         row.appendChild(yarn);
     }
+
+    //TODO: hashed + quilt
 
     row.onclick = () => {
         if (selectedClass) selectedClass.classList.remove("selectedClass");
@@ -1765,6 +1771,8 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             }
             row.appendChild(yarn);
         }
+
+        // TODO: hashed + quilt
 
         row.onclick = () => {
             if (selectedMethod) selectedMethod.classList.remove("selectedMethod");
@@ -1870,6 +1878,8 @@ function loadMethod(methodData: MethodData, enabledMappings: MappingTypes[]) {
             params.add(key);
         }
     }
+
+    // TODO: quilt
 
     for (const param of params.keys()) {
         const row = document.createElement("tr");
@@ -2032,6 +2042,8 @@ declare const resultsTable: HTMLDivElement;
             search(searchInput.value, parseInt(searchType.value));
         }
     });
+
+    //TODO: hashed + quilt
 
     settingsBtn.addEventListener("click", () => {
         // @ts-ignore

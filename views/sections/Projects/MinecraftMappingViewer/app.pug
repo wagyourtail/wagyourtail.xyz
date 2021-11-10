@@ -101,6 +101,15 @@ html
                                     input#yarnMappingCheck(type= "checkbox" disabled)
                                     |  Yarn
                                 select#yarnVersionSelect(style= "visibility: hidden;")
+                            .mapping
+                                label(for="hashedMojmapCheck")
+                                    input#hashedMojmapCheck(type= "checkbox" disabled)
+                                    |  Hashed Mojmap
+                            .mapping
+                                label(for="quiltMappingCheck")
+                                    input#quiltMappingCheck(type= "checkbox" disabled)
+                                    |  Quilt
+                                select#quiltVersionSelect(style= "visibility: hidden;")
                         .signatures
                             h4 Signatures
                             label(for="mojangSignatureCheck")
@@ -118,6 +127,12 @@ html
                             label(for="yarnSignatureCheck")
                                 input#yarnSignatureCheck(type= "checkbox")
                                 |  Yarn
+                            label(for="hashedMojmapSignatureCheck")
+                                input#hashedMojmapSignatureCheck(type= "checkbox")
+                                |  Hashed Mojmap
+                            label(for="quiltSignatureCheck")
+                                input#quiltSignatureCheck(type= "checkbox")
+                                |  Quilt
                     div
                         .button#closeSettings close
             .popup#exportPop(style= "display: none;")
