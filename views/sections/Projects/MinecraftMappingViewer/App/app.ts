@@ -1371,14 +1371,34 @@ abstract class AbstractData {
         if (mappingType === MappingTypes.OBF) {
             return this.obfName;
         }
-        return this.mappings.get(mappingType) ?? this.mappings.get(fallbackMappingType) ?? "-";
+        let mapping = this.mappings.get(mappingType);
+        if (!mapping) {
+            if (fallbackMappingType === MappingTypes.OBF) {
+                return this.obfName;
+            }
+            mapping = this.mappings.get(fallbackMappingType);
+        }
+        return mapping ?? "-";
     }
-
+    
     getMappingWithDoubleFallback(mappingType: MappingTypes, fallbackMappingType: MappingTypes, fallback2MappingType: MappingTypes) {
         if (mappingType === MappingTypes.OBF) {
             return this.obfName;
         }
-        return this.mappings.get(mappingType) ?? this.mappings.get(fallbackMappingType) ?? this.mappings.get(fallback2MappingType) ?? "-";
+        let mapping = this.mappings.get(mappingType);
+        if (!mapping) {
+            if (fallbackMappingType === MappingTypes.OBF) {
+                return this.obfName;
+            }
+            mapping = this.mappings.get(fallbackMappingType);
+        }
+        if (!mapping) {
+            if (fallback2MappingType === MappingTypes.OBF) {
+                return this.obfName;
+            }
+            mapping = this.mappings.get(fallback2MappingType);
+        }
+        return mapping ?? "-";
     }
 
     getComment(mappingType: MappingTypes) {
@@ -1414,7 +1434,7 @@ abstract class ClassItem extends AbstractData {
         return this.obfDesc.replace(/L(.+?);/g, (match, p1) => {
             const clz = this.classMappings.classes.get(p1);
             const mapped = clz?.getMappingWithFallback(mappingType, fallbackMappingType);
-            return `L${mapped == "-" ? p1 : mapped};`;
+            return `L${!mapped || mapped == "-" ? p1 : mapped};`;
         });
     }
 
