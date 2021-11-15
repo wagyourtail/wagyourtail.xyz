@@ -2019,7 +2019,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
         const row = document.createElement("tr");
         const obf = document.createElement("td");
         row.classList.add("MethodRow");
-        obf.innerHTML = methodName;
+        obf.innerHTML = methodName.replace("<", "&lt;").replace(">", "&gt;");
         row.appendChild(obf);
 
         if (enabledMappings.includes(MappingTypes.MOJMAP)) {
