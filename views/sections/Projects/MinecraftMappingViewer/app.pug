@@ -140,12 +140,18 @@ html
                     h2 Export
                     div
                     .mapping
-                        h4.text-left From:
+                        h4.text-left From\:
                         select#exportFrom
                     .mapping
-                        h4.text-left To:
-                        select#exportTo
-                    .button#exportConfirm Export to tiny mappings
+                        h4.text-left To\:
+                        br
+                    | class
+                        select#exportToClass
+                    | method/field
+                        select#exportToContent
+                    | meta
+                        select#exportToMeta
+                    .button#exportConfirmTiny Export to tiny mappings
                     div
                         .button#closeExport close
             .popup#importPop(style= "display: none;")

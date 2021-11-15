@@ -194,13 +194,13 @@ async function loadMinecraftVersions() {
         const xmlParse = new DOMParser();
         const interXML = xmlParse.parseFromString(await metaRes.text(), "text/xml");
         for (const version of Array.from(interXML.getElementsByTagName("version"))) {
-            hashedMojmapManifest[version.innerHTML.split("-")[0]] = "hashed-mojmap";
+            hashedMojmapManifest[version.innerHTML.split("-SNAPSHOT")[0]] = "hashed-mojmap";
         }
 
         metaRes = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/snapshot/org/quiltmc/hashed/maven-metadata.xml`);
         const interXML2 = xmlParse.parseFromString(await metaRes.text(), "text/xml");
         for (const version of Array.from(interXML2.getElementsByTagName("version"))) {
-            hashedMojmapManifest[version.innerHTML.split("-")[0]] = "hashed";
+            hashedMojmapManifest[version.innerHTML.split("-SNAPSHOT")[0]] = "hashed";
         }
         profilerDel("Downloading Hashed Mojmap Mappings");
     }
