@@ -2498,10 +2498,9 @@ async function exportMappings() {
     const fallback_from = getFallbackMapping(from_mapping);
     const fallback_to_class = getFallbackMapping(to_class_mapping);
     const fallback_to_content = getFallbackMapping(to_content_mapping);
-    const fallback_to_meta = getFallbackMapping(to_meta_mapping);
 
     for (const clz of mappings.classes.values()) {
-        const from_class = clz.getMappingWithFallback(from_mapping, fallback_from);
+        const from_class = clz.getMappingWithDoubleFallback(from_mapping, fallback_from, MappingTypes.OBF);
         let to_class = clz.getMappingWithFallback(to_class_mapping, fallback_to_class);
         if (to_class === "-") {
             to_class = from_class;
@@ -2513,7 +2512,7 @@ async function exportMappings() {
             exportString += `\n\t${to_contents.replace("<br>", "\\n")}`;
         }
         for (const md of clz.methods.values()) {
-            const from_method = md.getMappingWithFallback(from_mapping, fallback_from);
+            const from_method = md.getMappingWithDoubleFallback(from_mapping, fallback_from, MappingTypes.OBF);
             let to_method = md.getMappingWithFallback(to_content_mapping, fallback_to_content);
             if (to_method === "-") {
                 to_method = from_method;
@@ -2531,7 +2530,7 @@ async function exportMappings() {
         }
 
         for (const fd of clz.fields.values()) {
-            const from_field = fd.getMappingWithFallback(from_mapping, fallback_from);
+            const from_field = fd.getMappingWithDoubleFallback(from_mapping, fallback_from, MappingTypes.OBF);
             let to_field = fd.getMappingWithFallback(to_content_mapping, fallback_to_content);
             if (to_field === "-") {
                 to_field = from_field;
