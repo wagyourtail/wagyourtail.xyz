@@ -76,6 +76,7 @@ declare const exportToContent: HTMLSelectElement;
 declare const exportToMeta: HTMLSelectElement;
 declare const exportFromName: HTMLInputElement;
 declare const exportToName: HTMLInputElement;
+declare const fallbackToOBF: HTMLInputElement;
 
 
 const NO_CORS_BYPASS = "/Projects/CORS-Bypass/App";
@@ -2032,7 +2033,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
     MethodTable.innerHTML = "";
     ParamsTable.innerHTML = "";
     FieldTable.innerHTML = "";
-    const fallbackTOOBF = false;
+    const fallbackTOOBF = fallbackToOBF.checked;
 
     //methods
     for (const [methodName, methodData] of classData.methods) {

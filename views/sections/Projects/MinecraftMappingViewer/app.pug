@@ -71,6 +71,10 @@ html
                             br
                             input#showSnapshots(type= "checkbox")
                         select#versionSelect
+                        br
+                        label(for="fallbackToOBF")
+                            input#fallbackToOBF(type= "checkbox") 
+                            | allow mappings to fallback to obfuscated
                     .settingGrid
                         .mappingtypes
                             h4 Mappings
