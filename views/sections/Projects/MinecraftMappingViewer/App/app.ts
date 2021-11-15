@@ -622,12 +622,12 @@ class ClassMappings {
 
             for (const classItem of classdata) {
                 const line = classItem.trim();
-                const matchMethod = line.match(/^(?:\d+:\d+:)?([^\s]+)\s*([^\s]+)(\(.*?\))\s*-&gt;\s*([^\s]+)/);
+                const matchMethod = line.match(/^(?:\d+:\d+:)?([^\s]+)\s*([^\s]+)(\(.*?\))\s*->\s*([^\s]+)/);
                 if (matchMethod) {
                     classItemData.methods.set(matchMethod[2], {retval:matchMethod[1], params:matchMethod[3], obf:matchMethod[4]});
                     continue;
                 }
-                const matchField = line.match(/^([^\d][^\s]+)\s*([^\s\(]+)\s*-&gt;\s*([^\s]+)/);
+                const matchField = line.match(/^([^\d][^\s]+)\s*([^\s\(]+)\s*->\s*([^\s]+)/);
                 if (matchField) {
                     classItemData.fields.set(matchField[2], {desc:matchField[1], obf:matchField[3]});
                 }
@@ -780,7 +780,7 @@ class ClassMappings {
             }
 
             for (const methodMapping of classMapping.methods ?? []) {
-                const method = clazz.getOrAddMethod(methodMapping.name.split("<").join("&lt;").split(">").join("&gt;"), methodMapping.descriptor, MappingTypes.MOJMAP);
+                const method = clazz.getOrAddMethod(methodMapping.name, methodMapping.descriptor, MappingTypes.MOJMAP);
 
                 if (method === null) {
                     console.error("ERROR PARSING YARN MAPPINGS FILE, could not find mojmap for method: " + classMapping.name + ";" + methodMapping.name + methodMapping.descriptor);
@@ -851,7 +851,6 @@ class ClassMappings {
     async loadSRGMappings(srgVersion: SRGVersion, srg_mappings: string) {
         if (this.loadedMappings.has(MappingTypes.SRG)) this.clearMappings(MappingTypes.SRG);
         profiler("Parsing SRG Mappings");
-        srg_mappings = srg_mappings.split("<").join("&lt;").split(">").join("&gt;");
         switch (srgVersion) {
             case SRGVersion.SRG:
                 await this.loadSRG1Mappings(srg_mappings);
@@ -1101,7 +1100,7 @@ class ClassMappings {
     async loadIntermediaryMappings(int_mappings: string) {
         if (this.loadedMappings.has(MappingTypes.INTERMEDIARY)) this.clearMappings(MappingTypes.INTERMEDIARY);
         profiler("Parsing Intermediary Mappings");
-        const class_mappings = int_mappings.split("<").join("&lt;").split(">").join("&gt;").split("\nc").map(e => e.split("\n").map(c => c.split("\t", -1)));
+        const class_mappings = int_mappings.split("\nc").map(e => e.split("\n").map(c => c.split("\t", -1)));
         const first_line = class_mappings.shift();
         if (!first_line) {
             console.error("ERROR PARSING INTERMEDIARY MAPPINGS FILE!");
