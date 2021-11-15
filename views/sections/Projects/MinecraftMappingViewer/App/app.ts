@@ -2032,6 +2032,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
     MethodTable.innerHTML = "";
     ParamsTable.innerHTML = "";
     FieldTable.innerHTML = "";
+    const fallbackTOOBF = false;
 
     //methods
     for (const [methodName, methodData] of classData.methods) {
@@ -2044,7 +2045,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
 
         if (enabledMappings.includes(MappingTypes.MOJMAP)) {
             const mojang = document.createElement("td");
-            mojang.innerHTML = methodData.getMappingWithFallback(MappingTypes.MOJMAP, MappingTypes.OBF).replace("<", "&lt;").replace(">", "&gt;");
+            mojang.innerHTML = methodData.getMappingWithFallback(MappingTypes.MOJMAP, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.MOJMAP).replace("<", "&lt;").replace(">", "&gt;");
             if (mojang.innerHTML != "-" && mojangSignatureCheck.checked) {
                 mojang.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.MOJMAP, MappingTypes.OBF);
             }
@@ -2053,7 +2054,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
 
         if (enabledMappings.includes(MappingTypes.SRG)) {
             const srg = document.createElement("td");
-            srg.innerHTML = methodData.getMappingWithFallback(MappingTypes.SRG, MappingTypes.OBF).replace("<", "&lt;").replace(">", "&gt;");
+            srg.innerHTML = methodData.getMappingWithFallback(MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG).replace("<", "&lt;").replace(">", "&gt;");
             if (srg.innerHTML != "-" && srgSignatureCheck.checked) {
                 srg.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.SRG, MappingTypes.OBF);
             }
@@ -2062,7 +2063,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
 
         if (enabledMappings.includes(MappingTypes.MCP)) {
             const mcp = document.createElement("td");
-            mcp.innerHTML = methodData.getMappingWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, MappingTypes.OBF).replace("<", "&lt;").replace(">", "&gt;");
+            mcp.innerHTML = methodData.getMappingWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG).replace("<", "&lt;").replace(">", "&gt;");
             if (mcp.innerHTML != "-" && mcpSignatureCheck.checked) {
                 mcp.innerHTML += methodData.transformDescriptorWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, MappingTypes.OBF);
             }
@@ -2071,7 +2072,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
 
         if (enabledMappings.includes(MappingTypes.INTERMEDIARY)) {
             const yarnIntermediary = document.createElement("td");
-            yarnIntermediary.innerHTML = methodData.getMappingWithFallback(MappingTypes.INTERMEDIARY, MappingTypes.OBF).replace("<", "&lt;").replace(">", "&gt;");
+            yarnIntermediary.innerHTML = methodData.getMappingWithFallback(MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY).replace("<", "&lt;").replace(">", "&gt;");
             if (yarnIntermediary.innerHTML != "-" && yarnIntermediarySignatureCheck.checked) {
                 yarnIntermediary.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.INTERMEDIARY, MappingTypes.OBF);
             }
@@ -2080,7 +2081,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
 
         if (enabledMappings.includes(MappingTypes.YARN)) {
             const yarn = document.createElement("td");
-            yarn.innerHTML = methodData.getMappingWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, MappingTypes.OBF).replace("<", "&lt;").replace(">", "&gt;");
+            yarn.innerHTML = methodData.getMappingWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY).replace("<", "&lt;").replace(">", "&gt;");
             if (yarn.innerHTML != "-" && yarnSignatureCheck.checked) {
                 yarn.innerHTML += methodData.transformDescriptorWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, MappingTypes.OBF);
             }
@@ -2089,7 +2090,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
 
         if (enabledMappings.includes(MappingTypes.HASHED)) {
             const hashed = document.createElement("td");
-            hashed.innerHTML = methodData.getMappingWithFallback(MappingTypes.HASHED, MappingTypes.OBF).replace("<", "&lt;").replace(">", "&gt;");
+            hashed.innerHTML = methodData.getMappingWithFallback(MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED).replace("<", "&lt;").replace(">", "&gt;");
             if (hashed.innerHTML != "-" && yarnSignatureCheck.checked) {
                 hashed.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.HASHED, MappingTypes.OBF);
             }
@@ -2098,7 +2099,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
 
         if (enabledMappings.includes(MappingTypes.QUILT)) {
             const quilt = document.createElement("td");
-            quilt.innerHTML = methodData.getMappingWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, MappingTypes.OBF).replace("<", "&lt;").replace(">", "&gt;");
+            quilt.innerHTML = methodData.getMappingWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED).replace("<", "&lt;").replace(">", "&gt;");
             if (quilt.innerHTML != "-" && yarnSignatureCheck.checked) {
                 quilt.innerHTML += methodData.transformDescriptorWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, MappingTypes.OBF);
             }
@@ -2136,7 +2137,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
 
         if (enabledMappings.includes(MappingTypes.MOJMAP)) {
             const mojang = document.createElement("td");
-            mojang.innerHTML = fieldData.getMappingWithFallback(MappingTypes.MOJMAP, MappingTypes.OBF);
+            mojang.innerHTML = fieldData.getMappingWithFallback(MappingTypes.MOJMAP, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.MOJMAP);
             if (mojang.innerHTML != "-" && mojangSignatureCheck.checked) {
                 mojang.innerHTML += fieldData.transformDescriptorWithFallback(MappingTypes.MOJMAP, MappingTypes.OBF);
             }
@@ -2145,7 +2146,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
 
         if (enabledMappings.includes(MappingTypes.SRG)) {
             const srg = document.createElement("td");
-            srg.innerHTML = fieldData.getMappingWithFallback(MappingTypes.SRG, MappingTypes.OBF);
+            srg.innerHTML = fieldData.getMappingWithFallback(MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
             if (srg.innerHTML != "-" && srgSignatureCheck.checked) {
                 srg.innerHTML += fieldData.transformDescriptorWithFallback(MappingTypes.SRG, MappingTypes.OBF);
             }
@@ -2154,7 +2155,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
 
         if (enabledMappings.includes(MappingTypes.MCP)) {
             const mcp = document.createElement("td");
-            mcp.innerHTML = fieldData.getMappingWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, MappingTypes.OBF);
+            mcp.innerHTML = fieldData.getMappingWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
             if (mcp.innerHTML != "-" && mcpSignatureCheck.checked) {
                 mcp.innerHTML += fieldData.transformDescriptorWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, MappingTypes.OBF);
             }
@@ -2163,7 +2164,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
 
         if (enabledMappings.includes(MappingTypes.INTERMEDIARY)) {
             const yarnIntermediary = document.createElement("td");
-            yarnIntermediary.innerHTML = fieldData.getMappingWithFallback(MappingTypes.INTERMEDIARY, MappingTypes.OBF);
+            yarnIntermediary.innerHTML = fieldData.getMappingWithFallback(MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
             if (yarnIntermediary.innerHTML != "-" && yarnIntermediarySignatureCheck.checked) {
                 yarnIntermediary.innerHTML += fieldData.transformDescriptorWithFallback(MappingTypes.INTERMEDIARY, MappingTypes.OBF);
             }
@@ -2172,7 +2173,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
 
         if (enabledMappings.includes(MappingTypes.YARN)) {
             const yarn = document.createElement("td");
-            yarn.innerHTML = fieldData.getMappingWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, MappingTypes.OBF);
+            yarn.innerHTML = fieldData.getMappingWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
             if (yarn.innerHTML != "-" && yarnSignatureCheck.checked) {
                 yarn.innerHTML += fieldData.transformDescriptorWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, MappingTypes.OBF);
             }
@@ -2181,7 +2182,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
 
         if (enabledMappings.includes(MappingTypes.HASHED)) {
             const hashed = document.createElement("td");
-            hashed.innerHTML = fieldData.getMappingWithFallback(MappingTypes.HASHED, MappingTypes.OBF);
+            hashed.innerHTML = fieldData.getMappingWithFallback(MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
             if (hashed.innerHTML != "-" && yarnSignatureCheck.checked) {
                 hashed.innerHTML += fieldData.transformDescriptorWithFallback(MappingTypes.HASHED, MappingTypes.OBF);
             }
@@ -2190,7 +2191,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
 
         if (enabledMappings.includes(MappingTypes.QUILT)) {
             const quilt = document.createElement("td");
-            quilt.innerHTML = fieldData.getMappingWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, MappingTypes.OBF);
+            quilt.innerHTML = fieldData.getMappingWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
             if (quilt.innerHTML != "-" && yarnSignatureCheck.checked) {
                 quilt.innerHTML += fieldData.transformDescriptorWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, MappingTypes.OBF);
             }
