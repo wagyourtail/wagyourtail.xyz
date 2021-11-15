@@ -2575,6 +2575,8 @@ let selectedMethod: HTMLTableRowElement | null = null;
     srgMappingCheck.checked = localStorage.getItem("srgMappingCheck.value") == "true";
     mcpMappingCheck.checked = localStorage.getItem("mcpMappingCheck.value") == "true";
     parchmentMappingCheck.checked = localStorage.getItem("parchmentMappingCheck.value") == "true";
+    hashedMojmapCheck.checked = localStorage.getItem("hashedMojmapCheck.value") == "true";
+    quiltMappingCheck.checked = localStorage.getItem("quiltMappingCheck.value") == "true";
 
     versionSelect.addEventListener("change", async (e) => {
         await setLoading(true);
