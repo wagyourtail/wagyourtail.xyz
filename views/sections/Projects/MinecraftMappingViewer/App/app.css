@@ -91,6 +91,7 @@ popperhtml, body {
     display: grid;
     grid-template-rows: auto auto auto auto;
     text-align: left;
+    padding-top: 10px;
 }
 
 #closeImport {

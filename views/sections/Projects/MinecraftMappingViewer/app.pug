@@ -17,9 +17,9 @@ html
             .title
                 h1 Minecraft Mappings Viewer
             .search
-                .button#importBtn(style= "display: none;")
+                .button#importBtn
                     div Import
-                .button#exportBtn(style= "display: none;")
+                .button#exportBtn
                     div Export
                 .button#settingsBtn
                     div Settings
@@ -140,18 +140,33 @@ html
                     h2 Export
                     div
                     .mapping
-                        h4.text-left From\:
-                        select#exportFrom
-                    .mapping
-                        h4.text-left To\:
+                        h4.text-left From:
                         br
-                        | class 
-                        select#exportToClass
-                        | method/field 
-                        select#exportToContent
-                        | meta 
-                        select#exportToMeta
-                    .button#exportConfirmTiny Export to tiny mappings
+                        .text-left
+                            input#exportFromName(type= "text", value= "intermediary")
+                        br
+                        .text-left
+                            select#exportFrom
+                    .mapping
+                        h4.text-left To:
+                        br
+                        .text-left
+                            input#exportToName(type= "text", value= "named")
+                        br
+                        .text-left
+                            | class 
+                            select#exportToClass
+                        br
+                        .text-left
+                            | method/field 
+                            select#exportToContent
+                        br
+                        .text-left
+                            | params/comments 
+                            select#exportToMeta
+                    div
+                        .button#confirmExportTiny Export to tiny mappings
+                    br
                     div
                         .button#closeExport close
             .popup#importPop(style= "display: none;")
@@ -159,20 +174,32 @@ html
                     h2 Import
                     div
                         | import custom mapping
-                    input#customMapping(type= "file" accept= ".tiny,.tsrg,.srg,.zip")
+                    input#customMappingImportFile(type= "file" accept= ".tiny,.tsrg,.srg,.zip,.jar,.pro,.txt")
                     #importType
-                        label#yarnIntermediaryImport(for= "yarnIntermediaryImport")
-                            input(type= "radio" name= "importMapping" value= "yarnIntermediary" checked)
+                        label(for="mojmapImport")
+                            input#mojmapImport(type= "radio" name="importType" value="mojmap")
+                            |  Mojang (proguard)
+                        label(for= "intermediaryImport")
+                            input#intermediaryImport(type= "radio" name= "importMapping" value= "yarnIntermediary" checked)
                             |  Yarn Intermediary
                         label(for= "yarnImport")
                             input#yarnImport(type= "radio" name= "importMapping" value= "yarn")
                             |  Yarn
+                        label(for= "parchmentImport")
+                            input#parchmentImport(type= "radio" name= "importMapping" value= "parchment")
+                            |  Parchment
                         label(for= "srgImport")
                             input#srgImport(type= "radio" name= "importMapping" value= "srg")
                             |  srg
                         label(for= "mcpImport")
                             input#mcpImport(type= "radio" name= "importMapping" value= "mcp")
                             |  mcp
+                        label(for= "hashedImport")
+                            input#hashedImport(type= "radio" name= "importMapping" value= "hashed")
+                            |  Hashed Mojmap
+                        label(for= "quiltImport")
+                            input#quiltImport(type= "radio" name= "importMapping" value= "quilt")
+                            |  quilt
                     div
                         .button#confirmImport confirm
                     div

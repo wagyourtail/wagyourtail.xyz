@@ -1,3 +1,4 @@
+import e from "express";
 import * as jsz from "jszip";
 import { JSZipObject } from "jszip";
 
@@ -10,6 +11,72 @@ declare const showSnapshots: HTMLInputElement;
 declare const searchInput: HTMLInputElement;
 declare const loadingProfiler: HTMLParagraphElement;
 declare const mojangConfirmPrompt: HTMLDivElement;
+declare const loading: HTMLElement;
+declare const results: HTMLElement;
+declare const mojangMappingCheck: HTMLInputElement;
+declare const srgMappingCheck: HTMLInputElement;
+declare const mcpMappingCheck: HTMLInputElement;
+declare const yarnIntermediaryMappingCheck: HTMLInputElement;
+declare const yarnMappingCheck: HTMLInputElement;
+declare const hashedMojmapCheck: HTMLInputElement;
+declare const quiltMappingCheck: HTMLInputElement;
+declare const yarnVersionSelect: HTMLSelectElement;
+declare const mcpVersionSelect: HTMLSelectElement;
+declare const quiltVersionSelect: HTMLSelectElement;
+declare const searchType: HTMLSelectElement;
+declare const classTableHead: HTMLTableElement;
+declare const methodTableHead: HTMLTableElement;
+declare const fieldTableHead: HTMLTableElement;
+declare const paramsTableHead: HTMLTableElement;
+declare const classes: HTMLTableElement;
+declare const method: HTMLTableElement;
+declare const fields: HTMLTableElement;
+declare const params: HTMLTableElement;
+declare const ClassTable: HTMLTableElement;
+declare const MethodTable: HTMLTableElement;
+declare const ParamsTable: HTMLTableElement;
+declare const FieldTable: HTMLTableElement;
+declare const versionData: HTMLParagraphElement;
+declare const commentHolder: HTMLDivElement;
+declare const parchmentVersionSelect: HTMLSelectElement;
+declare const parchmentMappingCheck: HTMLInputElement;
+declare const mojangSignatureCheck: HTMLInputElement;
+declare const srgSignatureCheck: HTMLInputElement;
+declare const mcpSignatureCheck: HTMLInputElement;
+declare const yarnIntermediarySignatureCheck: HTMLInputElement;
+declare const yarnSignatureCheck: HTMLInputElement;
+declare const settingsBtn: HTMLDivElement;
+declare const closeSettings: HTMLDivElement;
+declare const settings: HTMLDivElement;
+declare const mojangConfirm: HTMLDivElement;
+declare const mojangDeny: HTMLDivElement;
+declare const searchButton: HTMLDivElement;
+declare const resultsTable: HTMLDivElement;
+declare const importPop: HTMLDivElement;
+declare const exportPop: HTMLDivElement;
+declare const importBtn: HTMLDivElement;
+declare const exportBtn: HTMLDivElement;
+declare const topbar: HTMLDivElement;
+declare const confirmImport: HTMLDivElement;
+declare const confirmExportTiny: HTMLDivElement;
+declare const closeImport: HTMLDivElement;
+declare const closeExport: HTMLDivElement;
+declare const yarnImport: HTMLInputElement;
+declare const mojmapImport: HTMLInputElement;
+declare const intermediaryImport: HTMLInputElement;
+declare const parchmentImport: HTMLInputElement;
+declare const srgImport: HTMLInputElement;
+declare const mcpImport: HTMLInputElement;
+declare const hashedImport: HTMLInputElement;
+declare const quiltImport: HTMLInputElement;
+declare const customMappingImportFile: HTMLInputElement;
+declare const exportFrom: HTMLSelectElement;
+declare const exportToClass: HTMLSelectElement;
+declare const exportToContent: HTMLSelectElement;
+declare const exportToMeta: HTMLSelectElement;
+declare const exportFromName: HTMLInputElement;
+declare const exportToName: HTMLInputElement;
+
 
 const NO_CORS_BYPASS = "/Projects/CORS-Bypass/App";
 
@@ -391,6 +458,10 @@ class ClassMappings {
             option.innerHTML = option.value = `snapshot-${version}`;
             mcpVersionSelect.appendChild(option);
         }
+        const mcpOption = document.createElement("option");
+        mcpOption.setAttribute("hidden", "");
+        mcpOption.innerHTML = mcpOption.value = "CUSTOM";
+        mcpVersionSelect.appendChild(mcpOption);
 
         //YARN
         yarnVersionSelect.innerHTML = "";
@@ -401,6 +472,10 @@ class ClassMappings {
             option.innerHTML = `build.${version}`;
             yarnVersionSelect.appendChild(option);
         }
+        const yarnOption = document.createElement("option");
+        yarnOption.setAttribute("hidden", "");
+        yarnOption.innerHTML = yarnOption.value = "CUSTOM";
+        yarnVersionSelect.appendChild(yarnOption);
 
         //PARCHMENT
         parchmentVersionSelect.innerHTML = "";
@@ -410,6 +485,10 @@ class ClassMappings {
             option.innerHTML = version;
             parchmentVersionSelect.appendChild(option);
         }
+        const parchmentOption = document.createElement("option");
+        parchmentOption.setAttribute("hidden", "");
+        parchmentOption.innerHTML = parchmentOption.value = "CUSTOM";
+        parchmentVersionSelect.appendChild(parchmentOption);
 
         // QUILT
         quiltVersionSelect.innerHTML = "";
@@ -419,6 +498,10 @@ class ClassMappings {
             option.innerHTML = `build.${version}`;
             quiltVersionSelect.appendChild(option);
         }
+        const quiltOption = document.createElement("option");
+        quiltOption.setAttribute("hidden", "");
+        quiltOption.innerHTML = quiltOption.value = "CUSTOM";
+        quiltVersionSelect.appendChild(quiltOption);
     }
 
     async loadEnabledMappings(enabledMappings: MappingTypes[]) {
@@ -497,7 +580,7 @@ class ClassMappings {
         profiler("Downloading Mojang Mappings");
         const request = await fetch(`${NO_CORS_BYPASS}/${mappingsURL}`);
         if (request.status !== 200) return;
-        const mappings = (await request.text()).split("<").join("&lt;").split(">").join("&gt;").split(".").join("/");
+        const mappings = (await request.text()).split(".").join("/");
         profilerDel("Downloading Mojang Mappings");
 
         await this.loadMojangMappings(mappings);
@@ -524,7 +607,7 @@ class ClassMappings {
         const reversedMappings = new Map<string, ReversedMappings>();
         for (const cdata of classes ?? []) {
             const classdata = cdata[0].split("\n");
-            const cNameData = classdata.shift()?.split("-&gt;");
+            const cNameData = classdata.shift()?.split("->");
             const cNamed = cNameData?.shift()?.trim();
 
             if (!cNamed) continue;
@@ -631,13 +714,13 @@ class ClassMappings {
 
     async getParchmentMappings(version: string) {
         profiler("Downloading Parchment Mappings");
-        let metaRes = await fetch(`http://localhost:8000/Projects/CORS-Bypass/App/https://ldtteam.jfrog.io/ui/api/v1/download?repoKey=parchmentmc-public&path=org%252Fparchmentmc%252Fdata%252Fparchment-${this.mcversion}%252F${version}%252Fmaven-metadata.xml`);
+        let metaRes = await fetch(`${NO_CORS_BYPASS}/https://ldtteam.jfrog.io/ui/api/v1/download?repoKey=parchmentmc-public&path=org%252Fparchmentmc%252Fdata%252Fparchment-${this.mcversion}%252F${version}%252Fmaven-metadata.xml`);
 
         const xmlParse = new DOMParser();
         const interXML = xmlParse.parseFromString(await metaRes.text(), "text/xml");
         const versionName = interXML.getElementsByTagName("value")[0].innerHTML;
 
-        let res = await fetch(`http://localhost:8000/Projects/CORS-Bypass/App/https://ldtteam.jfrog.io/ui/api/v1/download?repoKey=parchmentmc-public&path=org%252Fparchmentmc%252Fdata%252Fparchment-${this.mcversion}%252F${version}%252Fparchment-${this.mcversion}-${versionName}-checked.zip`);
+        let res = await fetch(`${NO_CORS_BYPASS}/https://ldtteam.jfrog.io/ui/api/v1/download?repoKey=parchmentmc-public&path=org%252Fparchmentmc%252Fdata%252Fparchment-${this.mcversion}%252F${version}%252Fparchment-${this.mcversion}-${versionName}-checked.zip`);
         profilerDel("Downloading Parchment Mappings");
 
         const zipContent = await zip.loadAsync(await res.arrayBuffer());
@@ -784,7 +867,7 @@ class ClassMappings {
         profilerDel("Parsing SRG Mappings");
     }
 
-    async loadSRG1Mappings(srg_mappings: string) {
+    private async loadSRG1Mappings(srg_mappings: string) {
         const lines = srg_mappings.split("\n");
         while (lines.length) {
             const current_line = (<string>lines.shift()).split(/\s+/);
@@ -829,7 +912,7 @@ class ClassMappings {
         }
     }
 
-    async loadTSRG1Mappings(tsrg_mappings: string) {
+    private async loadTSRG1Mappings(tsrg_mappings: string) {
         const lines = tsrg_mappings.split("\n");
         let current_class: ClassData | null = null;
         while (lines.length) {
@@ -869,7 +952,7 @@ class ClassMappings {
 
     }
 
-    async loadTSRG2Mappings(tsrg2_mappings: string) {
+    private async loadTSRG2Mappings(tsrg2_mappings: string) {
         const lines = tsrg2_mappings.split("\n");
         lines.shift();
         let current_class: ClassData | null = null;
@@ -1070,7 +1153,7 @@ class ClassMappings {
     }
 
     async parseTinyFile(contents: string, mapping_From: MappingTypes, mapping_To: MappingTypes, reversed?: boolean) {
-        const class_mappings = contents.split("<").join("&lt;").split(">").join("&gt;").split("\nc").map(e => e.split("\n").map(c => c.split("\t", -1)));
+        const class_mappings = contents.split("\nc").map(e => e.split("\n").map(c => c.split("\t", -1)));
         const first_line = class_mappings.shift();
         if (!first_line) {
             console.error("ERROR PARSING YARN MAPPINGS FILE!");
@@ -1117,7 +1200,7 @@ class ClassMappings {
                 switch (item[1]) {
                     // class comment
                     case "c":
-                        current_class.comments.set(mapping_To, item.slice(2).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<"));
+                        current_class.comments.set(mapping_To, item.slice(2).join("\t").replace(/\\n/g, "<br>"));
                         break;
                     // class method
                     case "m":
@@ -1133,7 +1216,7 @@ class ClassMappings {
                         switch (item[2]) {
                             // item comment
                             case "c":
-                                current?.comments.set(mapping_To, item.slice(3).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<"));
+                                current?.comments.set(mapping_To, item.slice(3).join("\t").replace(/\\n/g, "<br>"));
                                 break;
                             // item param
                             case "p":
@@ -1148,7 +1231,7 @@ class ClassMappings {
                                 switch (item[3]) {
                                     //param comment
                                     case "c":
-                                        current?.comments.set(mapping_To, (current?.comments.get(mapping_To) ?? "") + `<br><p>${current_param} : ${item.slice(4).join("\t").replace(/\\n/g, "<br>").replace(/&gt;/g, ">").replace(/&lt;/g, "<")}</p>`);
+                                        current?.comments.set(mapping_To, (current?.comments.get(mapping_To) ?? "") + `<br>@param ${current_param} ${item.slice(4).join("\t").replace(/\\n/g, "<br>")}`);
                                         break;
                                     default:
                                         console.error("ERROR PARSING YARN MAPPINGS FILE, unknown item-item element: " + item.join(","));
@@ -1193,7 +1276,7 @@ class ClassMappings {
     async loadHashedMappings(hashed_mappings: string) {
         if (this.loadedMappings.has(MappingTypes.HASHED)) this.clearMappings(MappingTypes.HASHED);
         profiler("Parsing Hashed Mojmap Mappings");
-        const class_mappings = hashed_mappings.split("<").join("&lt;").split(">").join("&gt;").split("\nc").map(e => e.split("\n").map(c => c.split("\t", -1)));
+        const class_mappings = hashed_mappings.split("\nc").map(e => e.split("\n").map(c => c.split("\t", -1)));
         const first_line = class_mappings.shift();
         if (!first_line) {
             console.error("ERROR PARSING HASHED MAPPINGS FILE!");
@@ -1285,6 +1368,20 @@ abstract class AbstractData {
         return this.mappings.get(mappingType) ?? "-";
     }
 
+    getMappingWithFallback(mappingType: MappingTypes, fallbackMappingType: MappingTypes) {
+        if (mappingType === MappingTypes.OBF) {
+            return this.obfName;
+        }
+        return this.mappings.get(mappingType) ?? this.mappings.get(fallbackMappingType) ?? "-";
+    }
+
+    getMappingWithDoubleFallback(mappingType: MappingTypes, fallbackMappingType: MappingTypes, fallback2MappingType: MappingTypes) {
+        if (mappingType === MappingTypes.OBF) {
+            return this.obfName;
+        }
+        return this.mappings.get(mappingType) ?? this.mappings.get(fallbackMappingType) ?? this.mappings.get(fallback2MappingType) ?? "-";
+    }
+
     getComment(mappingType: MappingTypes) {
         return this.comments.get(mappingType);
     }
@@ -1307,6 +1404,30 @@ abstract class ClassItem extends AbstractData {
         }
         return this.obfDesc.replace(/L(.+?);/g, (match, p1) => {
             return `L${this.classMappings.classes.get(p1)?.mappings.get(mappingType) ?? p1};`;
+        });
+    }
+
+    transformDescriptorWithFallback(mappingType: MappingTypes, fallbackMappingType: MappingTypes): string | null {
+        if (this.obfDesc == null) return null;
+        if (MappingTypes.OBF == mappingType) {
+            return this.obfDesc;
+        }
+        return this.obfDesc.replace(/L(.+?);/g, (match, p1) => {
+            const clz = this.classMappings.classes.get(p1);
+            const mapped = clz?.getMappingWithFallback(mappingType, fallbackMappingType);
+            return `L${mapped == "-" ? p1 : mapped};`;
+        });
+    }
+
+    transformDescriptorWithDoubleFallback(mappingType: MappingTypes, fallbackMappingType: MappingTypes, fallback2MappingType: MappingTypes): string | null {
+        if (this.obfDesc == null) return null;
+        if (MappingTypes.OBF == mappingType) {
+            return this.obfDesc;
+        }
+        return this.obfDesc.replace(/L(.+?);/g, (match, p1) => {
+            const clz = this.classMappings.classes.get(p1);
+            const mapped = clz?.getMappingWithDoubleFallback(mappingType, fallbackMappingType, fallback2MappingType);
+            return `L${mapped == "-" ? p1 : mapped};`;
         });
     }
 
@@ -1387,8 +1508,6 @@ class ClassData extends AbstractData {
     }
 }
 
-declare const loading: HTMLElement;
-declare const results: HTMLElement;
 
 //show user data shit
 function setLoading(bool: boolean) {
@@ -1408,19 +1527,6 @@ function setLoading(bool: boolean) {
         }, 0);
     });
 }
-
-declare const mojangMappingCheck: HTMLInputElement;
-declare const srgMappingCheck: HTMLInputElement;
-declare const mcpMappingCheck: HTMLInputElement;
-declare const yarnIntermediaryMappingCheck: HTMLInputElement;
-declare const yarnMappingCheck: HTMLInputElement;
-declare const hashedMojmapCheck: HTMLInputElement;
-declare const quiltMappingCheck: HTMLInputElement;
-
-declare const yarnVersionSelect: HTMLSelectElement;
-declare const mcpVersionSelect: HTMLSelectElement;
-declare const quiltVersionSelect: HTMLSelectElement;
-declare const searchType: HTMLSelectElement;
 
 
 function getEnabledMappings(mcVersion: MCVersionSlug): MappingTypes[] {
@@ -1516,16 +1622,6 @@ function getEnabledMappings(mcVersion: MCVersionSlug): MappingTypes[] {
 enum SearchType {
     KEYWORD, CLASS, METHOD, FIELD
 }
-
-declare const classTableHead: HTMLTableElement;
-declare const methodTableHead: HTMLTableElement;
-declare const fieldTableHead: HTMLTableElement;
-declare const paramsTableHead: HTMLTableElement;
-
-declare const classes: HTMLTableElement;
-declare const method: HTMLTableElement;
-declare const fields: HTMLTableElement;
-declare const params: HTMLTableElement;
 
 async function setTopbars(enabled: MappingTypes[]) {
     profiler("Updating Table Headers");
@@ -1777,12 +1873,6 @@ function createResizableColumn(col: HTMLTableHeaderCellElement, resizer: HTMLDiv
     resizer.addEventListener('mousedown', mouseDownHandler);
 }
 
-declare const ClassTable: HTMLTableElement;
-declare const MethodTable: HTMLTableElement;
-declare const ParamsTable: HTMLTableElement;
-declare const FieldTable: HTMLTableElement;
-declare const versionData: HTMLParagraphElement;
-
 async function search(value: string, type: SearchType) {
 
     setLoading(true);
@@ -1935,63 +2025,63 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
 
         if (enabledMappings.includes(MappingTypes.MOJMAP)) {
             const mojang = document.createElement("td");
-            mojang.innerHTML = methodData.mappings.get(MappingTypes.MOJMAP) ?? "-";
+            mojang.innerHTML = methodData.getMappingWithFallback(MappingTypes.MOJMAP, MappingTypes.OBF).replace("<", "&lt;").replace(">", "&gt;");
             if (mojang.innerHTML != "-" && mojangSignatureCheck.checked) {
-                mojang.innerHTML += methodData.transformDescriptor(MappingTypes.MOJMAP);
+                mojang.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.MOJMAP, MappingTypes.OBF);
             }
             row.appendChild(mojang);
         }
 
         if (enabledMappings.includes(MappingTypes.SRG)) {
             const srg = document.createElement("td");
-            srg.innerHTML = methodData.mappings.get(MappingTypes.SRG) ?? "-";
+            srg.innerHTML = methodData.getMappingWithFallback(MappingTypes.SRG, MappingTypes.OBF).replace("<", "&lt;").replace(">", "&gt;");
             if (srg.innerHTML != "-" && srgSignatureCheck.checked) {
-                srg.innerHTML += methodData.transformDescriptor(MappingTypes.SRG);
+                srg.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.SRG, MappingTypes.OBF);
             }
             row.appendChild(srg);
         }
 
         if (enabledMappings.includes(MappingTypes.MCP)) {
             const mcp = document.createElement("td");
-            mcp.innerHTML = methodData.mappings.get(MappingTypes.MCP) ?? methodData.mappings.get(MappingTypes.SRG) ?? "-";
+            mcp.innerHTML = methodData.getMappingWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, MappingTypes.OBF).replace("<", "&lt;").replace(">", "&gt;");
             if (mcp.innerHTML != "-" && mcpSignatureCheck.checked) {
-                mcp.innerHTML += methodData.transformDescriptor(MappingTypes.MCP);
+                mcp.innerHTML += methodData.transformDescriptorWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, MappingTypes.OBF);
             }
             row.appendChild(mcp);
         }
 
         if (enabledMappings.includes(MappingTypes.INTERMEDIARY)) {
             const yarnIntermediary = document.createElement("td");
-            yarnIntermediary.innerHTML = methodData.mappings.get(MappingTypes.INTERMEDIARY) ?? "-";
+            yarnIntermediary.innerHTML = methodData.getMappingWithFallback(MappingTypes.INTERMEDIARY, MappingTypes.OBF).replace("<", "&lt;").replace(">", "&gt;");
             if (yarnIntermediary.innerHTML != "-" && yarnIntermediarySignatureCheck.checked) {
-                yarnIntermediary.innerHTML += methodData.transformDescriptor(MappingTypes.INTERMEDIARY);
+                yarnIntermediary.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.INTERMEDIARY, MappingTypes.OBF);
             }
             row.appendChild(yarnIntermediary);
         }
 
         if (enabledMappings.includes(MappingTypes.YARN)) {
             const yarn = document.createElement("td");
-            yarn.innerHTML = methodData.mappings.get(MappingTypes.YARN) ?? methodData.mappings.get(MappingTypes.YARN) ?? "-";
+            yarn.innerHTML = methodData.getMappingWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, MappingTypes.OBF).replace("<", "&lt;").replace(">", "&gt;");
             if (yarn.innerHTML != "-" && yarnSignatureCheck.checked) {
-                yarn.innerHTML += methodData.transformDescriptor(MappingTypes.YARN);
+                yarn.innerHTML += methodData.transformDescriptorWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, MappingTypes.OBF);
             }
             row.appendChild(yarn);
         }
 
         if (enabledMappings.includes(MappingTypes.HASHED)) {
             const hashed = document.createElement("td");
-            hashed.innerHTML = methodData.mappings.get(MappingTypes.HASHED) ?? "-";
+            hashed.innerHTML = methodData.getMappingWithFallback(MappingTypes.HASHED, MappingTypes.OBF).replace("<", "&lt;").replace(">", "&gt;");
             if (hashed.innerHTML != "-" && yarnSignatureCheck.checked) {
-                hashed.innerHTML += methodData.transformDescriptor(MappingTypes.HASHED);
+                hashed.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.HASHED, MappingTypes.OBF);
             }
             row.appendChild(hashed);
         }
 
         if (enabledMappings.includes(MappingTypes.QUILT)) {
             const quilt = document.createElement("td");
-            quilt.innerHTML = methodData.mappings.get(MappingTypes.QUILT) ?? methodData.mappings.get(MappingTypes.HASHED) ?? "-";
+            quilt.innerHTML = methodData.getMappingWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, MappingTypes.OBF).replace("<", "&lt;").replace(">", "&gt;");
             if (quilt.innerHTML != "-" && yarnSignatureCheck.checked) {
-                quilt.innerHTML += methodData.transformDescriptor(MappingTypes.QUILT);
+                quilt.innerHTML += methodData.transformDescriptorWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, MappingTypes.OBF);
             }
             row.appendChild(quilt);
         }
@@ -2027,63 +2117,63 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
 
         if (enabledMappings.includes(MappingTypes.MOJMAP)) {
             const mojang = document.createElement("td");
-            mojang.innerHTML = fieldData.mappings.get(MappingTypes.MOJMAP) ?? "-";
+            mojang.innerHTML = fieldData.getMappingWithFallback(MappingTypes.MOJMAP, MappingTypes.OBF);
             if (mojang.innerHTML != "-" && mojangSignatureCheck.checked) {
-                mojang.innerHTML += fieldData.transformDescriptor(MappingTypes.MOJMAP);
+                mojang.innerHTML += fieldData.transformDescriptorWithFallback(MappingTypes.MOJMAP, MappingTypes.OBF);
             }
             row.appendChild(mojang);
         }
 
         if (enabledMappings.includes(MappingTypes.SRG)) {
             const srg = document.createElement("td");
-            srg.innerHTML = fieldData.mappings.get(MappingTypes.SRG) ?? "-";
+            srg.innerHTML = fieldData.getMappingWithFallback(MappingTypes.SRG, MappingTypes.OBF);
             if (srg.innerHTML != "-" && srgSignatureCheck.checked) {
-                srg.innerHTML += fieldData.transformDescriptor(MappingTypes.SRG);
+                srg.innerHTML += fieldData.transformDescriptorWithFallback(MappingTypes.SRG, MappingTypes.OBF);
             }
             row.appendChild(srg);
         }
 
         if (enabledMappings.includes(MappingTypes.MCP)) {
             const mcp = document.createElement("td");
-            mcp.innerHTML = fieldData.mappings.get(MappingTypes.MCP) ?? fieldData.mappings.get(MappingTypes.SRG) ?? "-";
+            mcp.innerHTML = fieldData.getMappingWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, MappingTypes.OBF);
             if (mcp.innerHTML != "-" && mcpSignatureCheck.checked) {
-                mcp.innerHTML += fieldData.transformDescriptor(MappingTypes.MCP);
+                mcp.innerHTML += fieldData.transformDescriptorWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, MappingTypes.OBF);
             }
             row.appendChild(mcp);
         }
 
         if (enabledMappings.includes(MappingTypes.INTERMEDIARY)) {
             const yarnIntermediary = document.createElement("td");
-            yarnIntermediary.innerHTML = fieldData.mappings.get(MappingTypes.INTERMEDIARY) ?? "-";
+            yarnIntermediary.innerHTML = fieldData.getMappingWithFallback(MappingTypes.INTERMEDIARY, MappingTypes.OBF);
             if (yarnIntermediary.innerHTML != "-" && yarnIntermediarySignatureCheck.checked) {
-                yarnIntermediary.innerHTML += fieldData.transformDescriptor(MappingTypes.INTERMEDIARY);
+                yarnIntermediary.innerHTML += fieldData.transformDescriptorWithFallback(MappingTypes.INTERMEDIARY, MappingTypes.OBF);
             }
             row.appendChild(yarnIntermediary);
         }
 
         if (enabledMappings.includes(MappingTypes.YARN)) {
             const yarn = document.createElement("td");
-            yarn.innerHTML = fieldData.mappings.get(MappingTypes.YARN) ?? fieldData.mappings.get(MappingTypes.INTERMEDIARY) ?? "-";
+            yarn.innerHTML = fieldData.getMappingWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, MappingTypes.OBF);
             if (yarn.innerHTML != "-" && yarnSignatureCheck.checked) {
-                yarn.innerHTML += fieldData.transformDescriptor(MappingTypes.YARN);
+                yarn.innerHTML += fieldData.transformDescriptorWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, MappingTypes.OBF);
             }
             row.appendChild(yarn);
         }
 
         if (enabledMappings.includes(MappingTypes.HASHED)) {
             const hashed = document.createElement("td");
-            hashed.innerHTML = fieldData.mappings.get(MappingTypes.HASHED) ?? "-";
+            hashed.innerHTML = fieldData.getMappingWithFallback(MappingTypes.HASHED, MappingTypes.OBF);
             if (hashed.innerHTML != "-" && yarnSignatureCheck.checked) {
-                hashed.innerHTML += fieldData.transformDescriptor(MappingTypes.HASHED);
+                hashed.innerHTML += fieldData.transformDescriptorWithFallback(MappingTypes.HASHED, MappingTypes.OBF);
             }
             row.appendChild(hashed);
         }
 
         if (enabledMappings.includes(MappingTypes.QUILT)) {
             const quilt = document.createElement("td");
-            quilt.innerHTML = fieldData.mappings.get(MappingTypes.QUILT) ?? fieldData.mappings.get(MappingTypes.HASHED) ?? "-";
+            quilt.innerHTML = fieldData.getMappingWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, MappingTypes.OBF);
             if (quilt.innerHTML != "-" && yarnSignatureCheck.checked) {
-                quilt.innerHTML += fieldData.transformDescriptor(MappingTypes.QUILT);
+                quilt.innerHTML += fieldData.transformDescriptorWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, MappingTypes.OBF);
             }
             row.appendChild(quilt);
         }
@@ -2160,8 +2250,6 @@ function loadMethod(methodData: MethodData, enabledMappings: MappingTypes[]) {
     }
 }
 
-declare const commentHolder: HTMLDivElement;
-
 function loadComment(data: AbstractData) {
     commentHolder.innerHTML = "";
     data.comments.forEach((comment, mapping) => {
@@ -2175,21 +2263,289 @@ function loadComment(data: AbstractData) {
     });
 }
 
+enum MappingFileTypes {
+    SRG, TINY, TSRG, TSRG2, MCP, PROGUARD, PARCHMENT
+}
+
+async function importMappings() {
+    const file = customMappingImportFile.files?.[0];
+    if (file == null) {
+        alert("No file selected");
+        return;
+    }
+    let contents: string | {file(path: string): JSZipObject | null};
+    let mappingType: MappingFileTypes;
+    if (file.name.endsWith(".jar") || file.name.endsWith(".zip")) {
+        const zip = await JSZip.loadAsync(file);
+        let zf;
+        if (zf = zip.file("mappings/mappings.tiny")) {
+            contents = await zf.async("string");
+            mappingType = MappingFileTypes.TINY;
+        } else if (zf = zip.file("hashed/mappings.tiny")) {
+            contents = await zf.async("string");
+            mappingType = MappingFileTypes.TINY;
+        } else if (zf = zip.file("joined.srg")) {
+            contents = await zf.async("string");
+            mappingType = MappingFileTypes.SRG;
+        } else if (zf = zip.file("config/joined.tsrg")) {
+            contents = await zf.async("string");
+            mappingType = contents.startsWith("tsrg2") ? MappingFileTypes.TSRG2 : MappingFileTypes.TSRG;
+        } else if (zf = zip.file("parchment.json")) {
+            contents = await zf.async("string");
+            mappingType = MappingFileTypes.PARCHMENT;
+        } else if (zf = zip.file("fields.csv")) {
+            contents = zip;
+            mappingType = MappingFileTypes.MCP;
+        } else {
+            alert("Unknown mapping type in jar or zip, try submitting directly?");;
+            return;
+        }
+    } else {
+        if (file.name.endsWith(".tiny")) {
+            contents = await file.text();
+            mappingType = MappingFileTypes.TINY;
+        } else if (file.name.endsWith(".tsrg")) {
+            contents = await file.text();
+            mappingType = contents.startsWith("tsrg2") ? MappingFileTypes.TSRG2 : MappingFileTypes.TSRG;
+        } else if (file.name.endsWith(".srg")) {
+            contents = await file.text();
+            mappingType = MappingFileTypes.SRG;
+        } else if (file.name.endsWith(".json")) {
+            contents = await file.text();
+            mappingType = MappingFileTypes.PARCHMENT;
+        } else if (file.name.endsWith(".txt") || file.name.endsWith(".pro")) {
+            contents = await file.text();
+            mappingType = MappingFileTypes.PROGUARD;
+        } else if (file.name.endsWith(".json")) {
+            contents = await file.text();
+            mappingType = MappingFileTypes.PARCHMENT;
+        } else {
+            alert("Unknown mapping type, if you think this is an error contact @Wagyourtail.");
+            return;
+        }
+    }
+
+    if (intermediaryImport.checked) {
+        if (mappingType === MappingFileTypes.TINY) {
+            yarnIntermediaryMappingCheck.checked = true;
+            await mappings.loadIntermediaryMappings(<string>contents);
+        } else {
+            alert("Intermediary mappings can only be imported from tiny mappings.");
+            return;
+        }
+    } else if (yarnImport.checked) {
+        if (mappingType === MappingFileTypes.TINY) {
+            yarnMappingCheck.checked = true;
+            yarnVersionSelect.value = "CUSTOM";
+            await mappings.loadYarnMappings(<string>contents);
+        } else {
+            alert("Yarn mappings can only be imported from tiny mappings.");
+            return;
+        }
+    } else if (mojmapImport.checked) {
+        if (mappingType === MappingFileTypes.PROGUARD) {
+            mojangMappingCheck.checked = true;
+            await mappings.loadMojangMappings(<string>contents);
+        } else {
+            alert("Mojmap mappings can only be imported from proguard mappings.");
+            return;
+        }
+    } else if (parchmentImport.checked) {
+        if (mappingType === MappingFileTypes.PARCHMENT) {
+            parchmentMappingCheck.checked = true;
+            parchmentVersionSelect.value = "CUSTOM";
+            await mappings.loadParchmentMappings(<string>contents);
+        } else {
+            alert("Parchment mappings can only be imported from parchment mappings (json).");
+            return;
+        }
+    } else if (mcpImport.checked) {
+        if (mappingType === MappingFileTypes.MCP) {
+            mcpMappingCheck.checked = true;
+            mcpVersionSelect.value = "CUSTOM";
+            await mappings.loadMCPMappings(<{file(path: string): JSZipObject | null}>contents);
+        } else {
+            alert("MCP mappings can only be imported from mcp mappings (zip of CSVs).");
+            return;
+        }
+    } else if (srgImport.checked) {
+        if (mappingType === MappingFileTypes.SRG) {
+            srgMappingCheck.checked = true;
+            await mappings.loadSRGMappings(SRGVersion.SRG, <string>contents);
+        } else if (mappingType === MappingFileTypes.TSRG) {
+            srgMappingCheck.checked = true;
+            await mappings.loadSRGMappings(SRGVersion.TSRG, <string>contents);
+        } else if (mappingType === MappingFileTypes.TSRG2) {
+            srgMappingCheck.checked = true;
+            await mappings.loadSRGMappings(SRGVersion.TSRG2, <string>contents);
+        } else {
+            alert("SRG mappings can only be imported from srg mappings (srg or tsrg).");
+            return;
+        }
+    } else if (hashedImport.checked) {
+        if (mappingType === MappingFileTypes.TINY) {
+            hashedMojmapCheck.checked = true;
+            await mappings.loadHashedMappings(<string>contents);
+        } else {
+            alert("Hashed mappings can only be imported from tiny mappings.");
+            return;
+        }
+    } else if (quiltImport.checked) {
+        if (mappingType === MappingFileTypes.TINY) {
+            quiltMappingCheck.checked = true;
+            quiltVersionSelect.value = "CUSTOM";
+            await mappings.loadQuiltMappings(<string>contents);
+        } else {
+            alert("Quilt mappings can only be imported from tiny mappings.");
+            return;
+        }
+    } else {
+        alert("No import type selected");
+        return;
+    }
+    importPop.style.display = "none";
+}
+
+async function updateExportMappingOptions() {
+    const maps: Set<MappingTypes> = new Set(mappings.loadedMappings);
+    if (maps.size) {
+        maps.add(MappingTypes.OBF);
+    }
+
+    exportFrom.innerHTML = "";
+    for (const map of maps) {
+        const option = document.createElement("option");
+        option.value = map.toString();
+        option.innerHTML = MappingTypes[map];
+        exportFrom.appendChild(option);
+    }
+
+    exportToClass.innerHTML = "";
+    for (const map of maps) {
+        const option = document.createElement("option");
+        option.value = map.toString();
+        option.innerHTML = MappingTypes[map];
+        exportToClass.appendChild(option);
+    }
+
+    exportToContent.innerHTML = "";
+    for (const map of maps) {
+        const option = document.createElement("option");
+        option.value = map.toString();
+        option.innerHTML = MappingTypes[map];
+        exportToContent.appendChild(option);
+    }
+
+    exportToMeta.innerHTML = "";
+    for (const map of maps) {
+        const option = document.createElement("option");
+        option.value = map.toString();
+        option.innerHTML = MappingTypes[map];
+        exportToMeta.appendChild(option);
+    }
+}
+
+function getFallbackMapping(map: MappingTypes) {
+    switch (map) {
+        case MappingTypes.OBF:
+            return map;
+        case MappingTypes.MOJMAP:
+            return MappingTypes.OBF;
+        case MappingTypes.PARCHMENT:
+            return MappingTypes.MOJMAP;
+        case MappingTypes.SRG:
+            return MappingTypes.OBF;
+        case MappingTypes.MCP:
+            return MappingTypes.SRG;
+        case MappingTypes.INTERMEDIARY:
+            return MappingTypes.OBF;
+        case MappingTypes.YARN:
+            return MappingTypes.INTERMEDIARY;
+        case MappingTypes.HASHED:
+            return MappingTypes.OBF;
+        case MappingTypes.QUILT:
+            return MappingTypes.OBF;
+    }
+}
+
+async function exportMappings() {
+    let exportString = `tiny\t2\t0\t${exportFromName.value}\t${exportToName.value}`;
+    const from_mapping: MappingTypes = parseInt(exportFrom.value);
+    const to_class_mapping: MappingTypes = parseInt(exportToClass.value);
+    const to_content_mapping: MappingTypes = parseInt(exportToContent.value);
+    const to_meta_mapping: MappingTypes = parseInt(exportToMeta.value);
+    const fallback_from = getFallbackMapping(from_mapping);
+    const fallback_to_class = getFallbackMapping(to_class_mapping);
+    const fallback_to_content = getFallbackMapping(to_content_mapping);
+    const fallback_to_meta = getFallbackMapping(to_meta_mapping);
+
+    for (const clz of mappings.classes.values()) {
+        const from_class = clz.getMappingWithFallback(from_mapping, fallback_from);
+        let to_class = clz.getMappingWithFallback(to_class_mapping, fallback_to_class);
+        if (to_class === "-") {
+            to_class = from_class;
+        }
+        exportString += `\nc\t${from_class}\t${to_class}`;
+
+        const to_contents = clz.getComment(to_meta_mapping);
+        if (to_contents) {
+            exportString += `\n\t${to_contents.replace("<br>", "\\n")}`;
+        }
+        for (const md of clz.methods.values()) {
+            const from_method = md.getMappingWithFallback(from_mapping, fallback_from);
+            let to_method = md.getMappingWithFallback(to_content_mapping, fallback_to_content);
+            if (to_method === "-") {
+                to_method = from_method;
+            }
+            exportString += `\n\tm\t${md.transformDescriptorWithFallback(from_mapping, fallback_from)}\t${from_method}\t${to_method}`;
+            const to_comment = md.getComment(to_meta_mapping);
+            if (to_comment) {
+                exportString += `\n\t\tc${to_comment.replace("<br>", "\\n")}`;
+            }
+            for (const [i, p] of [...md.params.get(to_meta_mapping)?.entries() ?? []].sort((e,d) => e[0] - d[0])) {
+                exportString += `\n\t\tp\t${i}\t\t${p}`;
+            }
+
+            //TODO: param comments as seperate here
+        }
+
+        for (const fd of clz.fields.values()) {
+            const from_field = fd.getMappingWithFallback(from_mapping, fallback_from);
+            let to_field = fd.getMappingWithFallback(to_content_mapping, fallback_to_content);
+            if (to_field === "-") {
+                to_field = from_field;
+            }
+            exportString += `\n\tf\t${fd.transformDescriptorWithFallback(from_mapping, fallback_from)}\t${from_field}\t${to_field}`;
+            const to_comment = fd.getComment(to_meta_mapping);
+            if (to_comment) {
+                exportString += `\n\t\tc${to_comment.replace("<br>", "\\n")}`;
+            }
+        }
+    }
+    download(exportString, "mappings.tiny", "text/plain");
+
+}
+// Function to download data to a file
+function download(data:string, filename:string, type:string) {
+    var file = new Blob([data], {type: type});
+    if ((<any>window.navigator).msSaveOrOpenBlob) // IE10+
+        (<any>window.navigator).msSaveOrOpenBlob(file, filename);
+    else { // Others
+        var a = document.createElement("a"),
+                url = URL.createObjectURL(file);
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);  
+        }, 0); 
+    }
+}
+
 let selectedMethod: HTMLTableRowElement | null = null;
-declare const parchmentVersionSelect: HTMLSelectElement;
-declare const parchmentMappingCheck: HTMLInputElement;
-declare const mojangSignatureCheck: HTMLInputElement;
-declare const srgSignatureCheck: HTMLInputElement;
-declare const mcpSignatureCheck: HTMLInputElement;
-declare const yarnIntermediarySignatureCheck: HTMLInputElement;
-declare const yarnSignatureCheck: HTMLInputElement;
-declare const settingsBtn: HTMLDivElement;
-declare const closeSettings: HTMLDivElement;
-declare const settings: HTMLDivElement;
-declare const mojangConfirm: HTMLDivElement;
-declare const mojangDeny: HTMLDivElement;
-declare const searchButton: HTMLDivElement;
-declare const resultsTable: HTMLDivElement;
+
 
 (() => {
     //load initial checks
@@ -2228,7 +2584,7 @@ declare const resultsTable: HTMLDivElement;
         }
     });
 
-    //checkbox change events
+    // checkbox change events
     mojangMappingCheck.addEventListener("change", (e) => {
         localStorage.setItem("mojangMappingCheck.value", (<HTMLInputElement>e.target).checked.toString());
         if ((<HTMLInputElement>e.target).checked) {
@@ -2354,7 +2710,7 @@ declare const resultsTable: HTMLDivElement;
     });
 
     showSnapshots.addEventListener("change", (e) => {
-        //add versions to drop-down
+        // add versions to drop-down
         for (const version of Array.from(versionSelect.children)) {
             if (version.classList.contains("MCSnapshot")) {
                 if ((<HTMLInputElement>e.target).checked) {
@@ -2365,9 +2721,38 @@ declare const resultsTable: HTMLDivElement;
             }
         }
     });
-})();
 
-declare const topbar: HTMLDivElement;
+    importBtn.addEventListener("click", (e) => {
+        // @ts-ignore
+        importPop.style.display = null;
+    });
+
+    exportBtn.addEventListener("click", async (e) => {
+        await updateExportMappingOptions();
+        // @ts-ignore
+        exportPop.style.display = null;
+    });
+
+    closeImport.addEventListener("click", () => {
+        // @ts-ignore
+        importPop.style.display = "none";
+    });
+
+    closeExport.addEventListener("click", () => {
+        exportPop.style.display = "none";
+    });
+
+    confirmExportTiny.addEventListener("click", async () => {
+        await exportMappings();
+        exportPop.style.display = "none";
+    });
+
+    confirmImport.addEventListener("click", async () => {
+        setLoading(true);
+        await importMappings();
+        search(searchInput.value, parseInt(searchType.value));
+    });
+})();
 
 function windowResize() {
     resultsTable.style.maxHeight = `${window.innerHeight-topbar.offsetHeight}px`
