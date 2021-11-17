@@ -20,6 +20,7 @@ declare const yarnIntermediaryMappingCheck: HTMLInputElement;
 declare const yarnMappingCheck: HTMLInputElement;
 declare const hashedMojmapCheck: HTMLInputElement;
 declare const quiltMappingCheck: HTMLInputElement;
+declare const spigotMappingCheck: HTMLInputElement;
 declare const yarnVersionSelect: HTMLSelectElement;
 declare const mcpVersionSelect: HTMLSelectElement;
 declare const quiltVersionSelect: HTMLSelectElement;
@@ -45,6 +46,7 @@ declare const srgSignatureCheck: HTMLInputElement;
 declare const mcpSignatureCheck: HTMLInputElement;
 declare const yarnIntermediarySignatureCheck: HTMLInputElement;
 declare const yarnSignatureCheck: HTMLInputElement;
+declare const spigotSignatureCheck: HTMLInputElement;
 declare const settingsBtn: HTMLDivElement;
 declare const closeSettings: HTMLDivElement;
 declare const settings: HTMLDivElement;
@@ -69,6 +71,7 @@ declare const srgImport: HTMLInputElement;
 declare const mcpImport: HTMLInputElement;
 declare const hashedImport: HTMLInputElement;
 declare const quiltImport: HTMLInputElement;
+declare const spigotImport: HTMLInputElement;
 declare const customMappingImportFile: HTMLInputElement;
 declare const exportFrom: HTMLSelectElement;
 declare const exportToClass: HTMLSelectElement;
@@ -85,9 +88,10 @@ const zip = new JSZip();
 let mcManifest: MCVersionManifest;
 let yarnManifest: YarnVersionManifest;
 let mcpManifest: MCPVersionManifest;
-let parchmentManifest: ParchmentVersionManifest;
+let parchmentNoManifest: ParchmentNoManifest;
 let hashedMojmapManifest: HashedMojmapManifest;
 let quiltManifest: QuiltManifest;
+let spigotNoManifest: SpigotNoManifest;
 
 let confirmMojang: boolean = false;
 let mappings: ClassMappings;
@@ -96,7 +100,7 @@ type ReleaseVersion = `${number}.${number}` | `${number}.${number}.${number}`;
 type Snapshot = `${number}w${number}${"a"|"b"|"c"|"d"|"e"}` | `${ReleaseVersion}-pre${number}` | `${ReleaseVersion}-rc${number}`;
 type MCVersionSlug =  ReleaseVersion | Snapshot;
 
-interface ParchmentVersionManifest {
+interface ParchmentNoManifest {
     [mcversion: string]: string[]
 }
 
@@ -131,6 +135,10 @@ interface MCPVersionManifest {
         snapshot: number[],
         stable?: number[]
     } | undefined
+}
+
+interface SpigotNoManifest {
+    [mcversion: string]: string | null
 }
 
 async function loadMinecraftVersions() {
@@ -239,17 +247,9 @@ async function loadMinecraftVersions() {
 
 
     // load parchment versions
-    if (parchmentManifest == null) {
-        parchmentManifest = {}
-        for (const mcVersion of ["1.16.5", "1.17", "1.17.1"]) {
-            const xmlParse = new DOMParser();
-            profiler(`Getting Parchment ${mcVersion} Versions`);
-
-            const parchmentRes = await fetch(`${NO_CORS_BYPASS}/https://ldtteam.jfrog.io/ui/api/v1/download?repoKey=parchmentmc-public&path=org%252Fparchmentmc%252Fdata%252Fparchment-${mcVersion}%252Fmaven-metadata.xml`);
-            profilerDel(`Getting Parchment ${mcVersion} Versions`);
-            const interXML = xmlParse.parseFromString(await parchmentRes.text(), "text/xml");
-            parchmentManifest[mcVersion] = Array.from(interXML.getElementsByTagName("versions")[0].children).map(e => e.innerHTML).reverse();
-        }
+    // parchment doesn't store a list -_-
+    if (parchmentNoManifest == null) {
+        parchmentNoManifest = {}
     }
 
     // hashed mojmap versions
@@ -289,6 +289,12 @@ async function loadMinecraftVersions() {
         }
 
         profilerDel("Downloading Quilt Mappings");
+    }
+
+    // spigot versions
+    // spigot doesn't store a list -_-
+    if (spigotNoManifest == null) {
+        spigotNoManifest = {};
     }
 
 
@@ -366,7 +372,8 @@ enum MappingTypes {
     MOJMAP, PARCHMENT,
     SRG, MCP,
     INTERMEDIARY, YARN,
-    HASHED, QUILT
+    HASHED, QUILT,
+    SPIGOT
 }
 
 enum SRGVersion {
@@ -480,7 +487,7 @@ class ClassMappings {
 
         //PARCHMENT
         parchmentVersionSelect.innerHTML = "";
-        for (const version of parchmentManifest[this.mcversion]?.sort().reverse() ?? []) {
+        for (const version of parchmentNoManifest[this.mcversion]?.sort().reverse() ?? []) {
             const option = document.createElement("option");
             option.value = version;
             option.innerHTML = version;
@@ -539,9 +546,16 @@ class ClassMappings {
         if (enabledMappings.includes(MappingTypes.QUILT)) {
             await this.getQuiltMappings(parseInt(quiltVersionSelect.value));
         }
+
+        if (enabledMappings.includes(MappingTypes.SPIGOT)) {
+            await this.getSpigotMappings();
+        }
     }
 
     async getOrAddClass(class_name: string, mapping: MappingTypes) {
+        if (mapping === MappingTypes.OBF && this.classes.has(class_name)) {
+            return this.classes.get(class_name);
+        }
         for (const clazz of this.classes.values()) {
             if (clazz.getMapping(mapping) === class_name) {
                 return clazz;
@@ -771,7 +785,7 @@ class ClassMappings {
         for (const classMapping of parchmentMappings.classes) {
             const clazz = await this.getOrAddClass(classMapping.name, MappingTypes.MOJMAP);
 
-            if (clazz === null) {
+            if (clazz == null) {
                 console.error("ERROR PARSING YARN MAPPINGS FILE, could not find mojmap for class: " + classMapping.name);
                 continue;
             }
@@ -879,6 +893,9 @@ class ClassMappings {
                     const obf_parts = current_line[1].match(/(.+)\/([^\/]+)$/);
                     const srg_parts = current_line[2].match(/(.+)\/([^\/]+)$/);
                     const current_class = await this.getOrAddClass(<string>obf_parts?.[1], MappingTypes.OBF);
+                    if (current_class == null) {
+                        continue;
+                    }
                     const current_field = current_class.getOrAddField(<string>obf_parts?.[2], null, MappingTypes.OBF);
                     current_field?.addMapping(MappingTypes.SRG, <string>srg_parts?.[2]);
                     const id = <string>srg_parts?.[2].match(/\d+/)?.[0];
@@ -894,6 +911,9 @@ class ClassMappings {
                     const obf_parts = current_line[1].match(/(.+)\/([^\/]+)$/);
                     const srg_parts = current_line[3].match(/(.+)\/([^\/]+)$/);
                     const current_class = await this.getOrAddClass(<string>obf_parts?.[1], MappingTypes.OBF);
+                    if (current_class == null) {
+                        continue;
+                    }
                     const current_method = current_class.getOrAddMethod(<string>obf_parts?.[2], current_line[2], MappingTypes.OBF);
                     current_method?.addMapping(MappingTypes.SRG, <string>srg_parts?.[2]);
                     current_method?.setDescriptor(MappingTypes.SRG, current_line[4]);
@@ -914,13 +934,16 @@ class ClassMappings {
 
     private async loadTSRG1Mappings(tsrg_mappings: string) {
         const lines = tsrg_mappings.split("\n");
-        let current_class: ClassData | null = null;
+        let current_class: ClassData | null | undefined = null;
         while (lines.length) {
             const current_line = <string>lines.shift();
             const indent = <string>current_line.match(/^\t*/)?.[0];
             if (indent.length == 0) {
                 const cParts = current_line.trim().split(/\s+/);
                 current_class = await this.getOrAddClass(cParts[0], MappingTypes.OBF);
+                if (current_class == null) {
+                    continue;
+                }
                 current_class.addMapping(MappingTypes.SRG, cParts[1]);
             } else if (indent.length == 1) {
                 const fmParts = current_line.trim().split(/\s+/);
@@ -955,7 +978,7 @@ class ClassMappings {
     private async loadTSRG2Mappings(tsrg2_mappings: string) {
         const lines = tsrg2_mappings.split("\n");
         lines.shift();
-        let current_class: ClassData | null = null;
+        let current_class: ClassData | null | undefined = null;
         let current_item: AbstractData | null | undefined = undefined;
         while (lines.length) {
             const current_line = <string>lines.shift();
@@ -963,6 +986,9 @@ class ClassMappings {
             if (indent.length == 0) {
                 const cParts = current_line.trim().split(/\s+/);
                 current_class = await this.getOrAddClass(cParts[0], MappingTypes.OBF);
+                if (current_class == null) {
+                    continue;
+                }
                 current_class.addMapping(MappingTypes.SRG, cParts[1]);
             } else if (indent.length == 1) {
                 const fmParts = current_line.trim().split(/\s+/);
@@ -1173,7 +1199,7 @@ class ClassMappings {
             }
 
             let current_class = await this.getOrAddClass(from, mapping_From);
-            if (current_class === null) {
+            if (current_class == null) {
                 console.error("ERROR PARSING YARN MAPPINGS FILE, could not find intermediaries for class: " + from + " " + to);
                 continue;
             }
@@ -1190,7 +1216,7 @@ class ClassMappings {
             }
 
             let current_class = await this.getOrAddClass(from, mapping_From);
-            if (current_class === null) {
+            if (current_class == null) {
                 continue;
             }
 
@@ -1339,6 +1365,52 @@ class ClassMappings {
         })
         this.loadedMappings.delete(mappingType);
     }
+
+    async getSpigotMappings() {
+        profiler("Downloading Spigot Mappings");
+        let res: Response = await fetch(`${NO_CORS_BYPASS}/https://hub.spigotmc.org/stash/rest/api/latest/projects/SPIGOT/repos/builddata/archive?at=${spigotNoManifest[this.mcversion]}&format=zip`);
+        profilerDel("Downloading Spigot Mappings");
+        const zipContent = await zip.loadAsync(await res.arrayBuffer());
+        this.loadSpigotMappings(zipContent, this.mcversion);
+    }
+
+    async loadSpigotMappings(spigotMappingZip: {file(path: string): JSZipObject | null}, descrim: string) {
+        if (this.loadedMappings.has(MappingTypes.SPIGOT)) this.clearMappings(MappingTypes.SPIGOT);
+        profiler("Parsing Spigot Mappings");
+        const classMappings = await spigotMappingZip.file(`mappings/bukkit-${descrim}-cl.csrg`)?.async("string");
+        for (const line of classMappings?.split("\n") ?? []) {
+            const parts = line.trim().split(" ");
+            if (line.trim() == "" || parts[0].startsWith("#")) continue;
+            const clazz = await this.getOrAddClass(parts[0], MappingTypes.OBF);
+            if (clazz == null) {
+                continue;
+            }
+            clazz.addMapping(MappingTypes.SPIGOT, parts[1]);
+        }
+
+        const memberMappings = await spigotMappingZip.file(`mappings/bukkit-${descrim}-members.csrg`)?.async("string");
+        let currentClass: ClassData | null | undefined = null;
+        for (const line of classMappings?.split("\n") ?? []) {
+            const parts = line.trim().split(" ");
+            if (line.trim() == "" || parts[0].startsWith("#")) continue;
+            currentClass = await this.getOrAddClass(parts[0], MappingTypes.SPIGOT);
+            if (currentClass == null) {
+                continue;
+            }
+            if (parts.length == 4) {
+                const md = await currentClass.getOrAddMethod(parts[1], <string>this.reverseTransformDesc(parts[2], MappingTypes.SPIGOT), MappingTypes.OBF);
+                md?.addMapping(MappingTypes.SPIGOT, parts[3]);
+
+            } else if (parts.length == 3) {
+                const fd = await currentClass.getOrAddField(parts[1], null, MappingTypes.OBF);
+                fd?.addMapping(MappingTypes.SPIGOT, parts[2]);
+            } else {
+                console.error("UNKNOWN MAPPING PART!");
+            }
+        }
+
+        profilerDel("Parsing Spigot Mappings");
+    }
 }
 
 abstract class AbstractData {
@@ -1451,11 +1523,14 @@ abstract class ClassItem extends AbstractData {
         });
     }
 
-    setDescriptor(mappingType: MappingTypes, desc: string) {
+    setDescriptor(mappingType: MappingTypes, desc: string | null) {
         if (mappingType === MappingTypes.OBF) {
             if (this.obfDesc != null) throw new Error("Tried to change obf descriptor!");
             else this.obfDesc = desc;
             return
+        }
+        if (desc == null) {
+            return;
         }
         this.descriptors.set(mappingType, desc);
     }
@@ -1502,8 +1577,18 @@ class ClassData extends AbstractData {
     }
 
     getOrAddField(field_name: string, field_desc: string | null, mapping: MappingTypes): FieldData | null {
+        if (mapping === MappingTypes.OBF && this.fields.has(field_name)) {
+            const field = this.fields.get(field_name);
+            if (field?.getDescriptor(MappingTypes.OBF) == null) {
+                field?.setDescriptor(MappingTypes.OBF, this.classMappings.reverseTransformDesc(field_desc, mapping));
+            }
+            return field ?? null;
+        }
         for (const field of this.fields.values()) {
             if (field.getMapping(mapping) === field_name || field.getMapping(MappingTypes.OBF) === field_name) {
+                if (field.getDescriptor(MappingTypes.OBF) == null) {
+                    field.setDescriptor(MappingTypes.OBF, this.classMappings.reverseTransformDesc(field_desc, mapping));
+                }
                 return field;
             }
         }
@@ -1515,6 +1600,9 @@ class ClassData extends AbstractData {
     }
 
     getOrAddMethod(method_name: string, method_desc: string, mapping: MappingTypes): MethodData | null {
+        if (mapping === MappingTypes.OBF && this.methods.has(method_name + method_desc)) {
+            return this.methods.get(method_name + method_desc) ?? null;
+        }
         for (const method of this.methods.values()) {
             if ((method.getMapping(mapping) === method_name || method.getMapping(MappingTypes.OBF) === method_name) && method.getDescriptor(mapping) === method_desc) {
                 return method;
@@ -1549,7 +1637,7 @@ function setLoading(bool: boolean) {
 }
 
 
-function getEnabledMappings(mcVersion: MCVersionSlug): MappingTypes[] {
+async function getEnabledMappings(mcVersion: MCVersionSlug): Promise<MappingTypes[]> {
     const checked: MappingTypes[] = [];
 
     if (mcVersionCompare(mcVersion, "1.14.4") != -1) {
@@ -1561,7 +1649,22 @@ function getEnabledMappings(mcVersion: MCVersionSlug): MappingTypes[] {
         mojangMappingCheck.disabled = true;
     }
 
-    if (mcVersion in parchmentManifest) {
+    // update if parchment has mappings for current mc version
+    if (parchmentNoManifest[mcVersion] == undefined) {
+        const xmlParse = new DOMParser();
+        profiler(`Getting Parchment ${mcVersion} Versions`);
+
+        const parchmentRes = await fetch(`${NO_CORS_BYPASS}/https://ldtteam.jfrog.io/ui/api/v1/download?repoKey=parchmentmc-public&path=org%252Fparchmentmc%252Fdata%252Fparchment-${mcVersion}%252Fmaven-metadata.xml`);
+        profilerDel(`Getting Parchment ${mcVersion} Versions`);
+        if (parchmentRes.status != 200) {
+            parchmentNoManifest[mcVersion] = [];
+        } else {
+            const interXML = xmlParse.parseFromString(await parchmentRes.text(), "text/xml");
+            parchmentNoManifest[mcVersion] = Array.from(interXML.getElementsByTagName("versions")[0].children).map(e => e.innerHTML).reverse();
+        }
+    }
+
+    if (parchmentNoManifest[mcVersion]?.length) {
         parchmentMappingCheck.disabled = false;
         // @ts-ignore
         parchmentVersionSelect.style.visibility = null;
@@ -1636,6 +1739,29 @@ function getEnabledMappings(mcVersion: MCVersionSlug): MappingTypes[] {
         quiltVersionSelect.style.visibility = "hidden";
     }
 
+    // update if spigot has mappings for current mc version
+    if (spigotNoManifest[mcVersion] === undefined) {
+        profiler(`Getting Spigot ${mcVersion} Versions`);
+        const spigotResp = await fetch(`${NO_CORS_BYPASS}/https://hub.spigotmc.org/versions/${mcVersion}.json`);
+        profilerDel(`Getting Spigot ${mcVersion} Versions`);
+        if (spigotResp.status != 200) {
+            spigotNoManifest[mcVersion] = null;
+        } else {
+            spigotNoManifest[mcVersion] = JSON.parse(await spigotResp.text()).refs.BuildData;
+        }
+    }
+
+    if (spigotNoManifest[mcVersion]) {
+        spigotMappingCheck.disabled = false;
+        if (spigotMappingCheck.checked) {
+            checked.push(MappingTypes.SPIGOT);
+        }
+    } else {
+        spigotMappingCheck.disabled = true;
+    }
+
+
+
     return checked;
 }
 
@@ -1693,6 +1819,12 @@ async function setTopbars(enabled: MappingTypes[]) {
             quilt.innerHTML = "Quilt";
             classTableHead.appendChild(quilt);
         }
+
+        if (enabled.includes(MappingTypes.SPIGOT)) {
+            const spigot = document.createElement("th");
+            spigot.innerHTML = "Spigot";
+            classTableHead.appendChild(spigot);
+        }
     }
 
     //method
@@ -1744,6 +1876,12 @@ async function setTopbars(enabled: MappingTypes[]) {
             quilt.innerHTML = "Quilt";
             methodTableHead.appendChild(quilt);
         }
+
+        if (enabled.includes(MappingTypes.SPIGOT)) {
+            const spigot = document.createElement("th");
+            spigot.innerHTML = "Spigot";
+            methodTableHead.appendChild(spigot);
+        }
     }
 
     //field
@@ -1794,6 +1932,12 @@ async function setTopbars(enabled: MappingTypes[]) {
             const quilt = document.createElement("th");
             quilt.innerHTML = "Quilt";
             fieldTableHead.appendChild(quilt);
+        }
+
+        if (enabled.includes(MappingTypes.SPIGOT)) {
+            const spigot = document.createElement("th");
+            spigot.innerHTML = "Spigot";
+            fieldTableHead.appendChild(spigot);
         }
     }
 
@@ -1896,7 +2040,7 @@ function createResizableColumn(col: HTMLTableHeaderCellElement, resizer: HTMLDiv
 async function search(value: string, type: SearchType) {
 
     setLoading(true);
-    const enabledMappings = getEnabledMappings(mappings.mcversion);
+    const enabledMappings = await getEnabledMappings(mappings.mcversion);
     versionData.innerHTML = mappings.mcversion + ": " + enabledMappings.map(e => {
         if (e == MappingTypes.PARCHMENT) {
             return `${MappingTypes[e]} (${parchmentVersionSelect.value})`;
@@ -2015,6 +2159,12 @@ async function addClass(classData: ClassData, enabledMappings: MappingTypes[], s
         row.appendChild(quilt);
     }
 
+    if (enabledMappings.includes(MappingTypes.SPIGOT)) {
+        const spigot = document.createElement("td");
+        spigot.innerHTML = classData.mappings.get(MappingTypes.SPIGOT) ?? "-";
+        row.appendChild(spigot);
+    }
+
     row.onclick = () => {
         if (selectedClass) selectedClass.classList.remove("selectedClass");
         row.classList.add("selectedClass");
@@ -2048,7 +2198,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             const mojang = document.createElement("td");
             mojang.innerHTML = methodData.getMappingWithFallback(MappingTypes.MOJMAP, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.MOJMAP).replace("<", "&lt;").replace(">", "&gt;");
             if (mojang.innerHTML != "-" && mojangSignatureCheck.checked) {
-                mojang.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.MOJMAP, MappingTypes.OBF);
+                mojang.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.MOJMAP, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.MOJMAP);
             }
             row.appendChild(mojang);
         }
@@ -2057,7 +2207,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             const srg = document.createElement("td");
             srg.innerHTML = methodData.getMappingWithFallback(MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG).replace("<", "&lt;").replace(">", "&gt;");
             if (srg.innerHTML != "-" && srgSignatureCheck.checked) {
-                srg.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.SRG, MappingTypes.OBF);
+                srg.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
             }
             row.appendChild(srg);
         }
@@ -2066,7 +2216,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             const mcp = document.createElement("td");
             mcp.innerHTML = methodData.getMappingWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG).replace("<", "&lt;").replace(">", "&gt;");
             if (mcp.innerHTML != "-" && mcpSignatureCheck.checked) {
-                mcp.innerHTML += methodData.transformDescriptorWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, MappingTypes.OBF);
+                mcp.innerHTML += methodData.transformDescriptorWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
             }
             row.appendChild(mcp);
         }
@@ -2075,7 +2225,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             const yarnIntermediary = document.createElement("td");
             yarnIntermediary.innerHTML = methodData.getMappingWithFallback(MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY).replace("<", "&lt;").replace(">", "&gt;");
             if (yarnIntermediary.innerHTML != "-" && yarnIntermediarySignatureCheck.checked) {
-                yarnIntermediary.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.INTERMEDIARY, MappingTypes.OBF);
+                yarnIntermediary.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
             }
             row.appendChild(yarnIntermediary);
         }
@@ -2084,7 +2234,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             const yarn = document.createElement("td");
             yarn.innerHTML = methodData.getMappingWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY).replace("<", "&lt;").replace(">", "&gt;");
             if (yarn.innerHTML != "-" && yarnSignatureCheck.checked) {
-                yarn.innerHTML += methodData.transformDescriptorWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, MappingTypes.OBF);
+                yarn.innerHTML += methodData.transformDescriptorWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
             }
             row.appendChild(yarn);
         }
@@ -2093,7 +2243,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             const hashed = document.createElement("td");
             hashed.innerHTML = methodData.getMappingWithFallback(MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED).replace("<", "&lt;").replace(">", "&gt;");
             if (hashed.innerHTML != "-" && yarnSignatureCheck.checked) {
-                hashed.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.HASHED, MappingTypes.OBF);
+                hashed.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
             }
             row.appendChild(hashed);
         }
@@ -2102,9 +2252,18 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             const quilt = document.createElement("td");
             quilt.innerHTML = methodData.getMappingWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED).replace("<", "&lt;").replace(">", "&gt;");
             if (quilt.innerHTML != "-" && yarnSignatureCheck.checked) {
-                quilt.innerHTML += methodData.transformDescriptorWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, MappingTypes.OBF);
+                quilt.innerHTML += methodData.transformDescriptorWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
             }
             row.appendChild(quilt);
+        }
+
+        if (enabledMappings.includes(MappingTypes.SPIGOT)) {
+            const spigot = document.createElement("td");
+            spigot.innerHTML = methodData.getMappingWithFallback(MappingTypes.SPIGOT, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SPIGOT).replace("<", "&lt;").replace(">", "&gt;");
+            if (spigot.innerHTML != "-" && yarnSignatureCheck.checked) {
+                spigot.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.SPIGOT, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SPIGOT);
+            }
+            row.appendChild(spigot);
         }
 
         row.onclick = () => {
@@ -2140,7 +2299,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             const mojang = document.createElement("td");
             mojang.innerHTML = fieldData.getMappingWithFallback(MappingTypes.MOJMAP, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.MOJMAP);
             if (mojang.innerHTML != "-" && mojangSignatureCheck.checked) {
-                mojang.innerHTML += fieldData.transformDescriptorWithFallback(MappingTypes.MOJMAP, MappingTypes.OBF);
+                mojang.innerHTML += ":" + fieldData.transformDescriptorWithFallback(MappingTypes.MOJMAP, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.MOJMAP);
             }
             row.appendChild(mojang);
         }
@@ -2149,7 +2308,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             const srg = document.createElement("td");
             srg.innerHTML = fieldData.getMappingWithFallback(MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
             if (srg.innerHTML != "-" && srgSignatureCheck.checked) {
-                srg.innerHTML += fieldData.transformDescriptorWithFallback(MappingTypes.SRG, MappingTypes.OBF);
+                srg.innerHTML += ":" + fieldData.transformDescriptorWithFallback(MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
             }
             row.appendChild(srg);
         }
@@ -2158,7 +2317,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             const mcp = document.createElement("td");
             mcp.innerHTML = fieldData.getMappingWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
             if (mcp.innerHTML != "-" && mcpSignatureCheck.checked) {
-                mcp.innerHTML += fieldData.transformDescriptorWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, MappingTypes.OBF);
+                mcp.innerHTML += ":" + fieldData.transformDescriptorWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
             }
             row.appendChild(mcp);
         }
@@ -2167,7 +2326,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             const yarnIntermediary = document.createElement("td");
             yarnIntermediary.innerHTML = fieldData.getMappingWithFallback(MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
             if (yarnIntermediary.innerHTML != "-" && yarnIntermediarySignatureCheck.checked) {
-                yarnIntermediary.innerHTML += fieldData.transformDescriptorWithFallback(MappingTypes.INTERMEDIARY, MappingTypes.OBF);
+                yarnIntermediary.innerHTML += ":" + fieldData.transformDescriptorWithFallback(MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
             }
             row.appendChild(yarnIntermediary);
         }
@@ -2176,7 +2335,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             const yarn = document.createElement("td");
             yarn.innerHTML = fieldData.getMappingWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
             if (yarn.innerHTML != "-" && yarnSignatureCheck.checked) {
-                yarn.innerHTML += fieldData.transformDescriptorWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, MappingTypes.OBF);
+                yarn.innerHTML += ":" + fieldData.transformDescriptorWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
             }
             row.appendChild(yarn);
         }
@@ -2185,7 +2344,7 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             const hashed = document.createElement("td");
             hashed.innerHTML = fieldData.getMappingWithFallback(MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
             if (hashed.innerHTML != "-" && yarnSignatureCheck.checked) {
-                hashed.innerHTML += fieldData.transformDescriptorWithFallback(MappingTypes.HASHED, MappingTypes.OBF);
+                hashed.innerHTML += ":" + fieldData.transformDescriptorWithFallback(MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
             }
             row.appendChild(hashed);
         }
@@ -2194,9 +2353,18 @@ function loadClass(classData: ClassData, enabledMappings: MappingTypes[], search
             const quilt = document.createElement("td");
             quilt.innerHTML = fieldData.getMappingWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
             if (quilt.innerHTML != "-" && yarnSignatureCheck.checked) {
-                quilt.innerHTML += fieldData.transformDescriptorWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, MappingTypes.OBF);
+                quilt.innerHTML += ":" + fieldData.transformDescriptorWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
             }
             row.appendChild(quilt);
+        }
+
+        if (enabledMappings.includes(MappingTypes.SPIGOT)) {
+            const spigot = document.createElement("td");
+            spigot.innerHTML = fieldData.getMappingWithFallback(MappingTypes.SPIGOT, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SPIGOT);
+            if (spigot.innerHTML != "-" && spigotSignatureCheck.checked) {
+                spigot.innerHTML += ":" + fieldData.transformDescriptorWithFallback(MappingTypes.SPIGOT, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SPIGOT);
+            }
+            row.appendChild(spigot);
         }
 
         row.onclick = () => {
@@ -2271,21 +2439,21 @@ function loadMethod(methodData: MethodData, enabledMappings: MappingTypes[]) {
     }
 }
 
-function loadComment(data: AbstractData) {
+async function loadComment(data: AbstractData) {
     commentHolder.innerHTML = "";
-    data.comments.forEach((comment, mapping) => {
-        if (!getEnabledMappings(mappings.mcversion).includes(mapping)) return;
+    for (const [mapping, comment] of data.comments.entries()) {
+        if (!(await getEnabledMappings(mappings.mcversion)).includes(mapping)) return;
         const header = document.createElement("h4");
         header.innerHTML = MappingTypes[mapping];
         commentHolder.appendChild(header);
         const content = document.createElement("p");
         content.innerHTML = comment;
         commentHolder.appendChild(content);
-    });
+    }
 }
 
 enum MappingFileTypes {
-    SRG, TINY, TSRG, TSRG2, MCP, PROGUARD, PARCHMENT
+    SRG, TINY, TSRG, TSRG2, MCP, PROGUARD, PARCHMENT, CSRG
 }
 
 async function importMappings() {
@@ -2317,6 +2485,9 @@ async function importMappings() {
         } else if (zf = zip.file("fields.csv")) {
             contents = zip;
             mappingType = MappingFileTypes.MCP;
+        } else if (zf = zip.file("info.json")) {
+            contents = zip;
+            mappingType = MappingFileTypes.CSRG;
         } else {
             alert("Unknown mapping type in jar or zip, try submitting directly?");;
             return;
@@ -2420,6 +2591,14 @@ async function importMappings() {
             alert("Quilt mappings can only be imported from tiny mappings.");
             return;
         }
+    } else if (spigotImport.checked) {
+        if (mappingType === MappingFileTypes.CSRG) {
+            spigotMappingCheck.checked = true;
+            const info = JSON.parse(await (<{file(path: string): JSZipObject | null}>contents).file("info.json")?.async("string") ?? "{}");
+            await mappings.loadSpigotMappings(<{file(path: string): JSZipObject | null}>contents, info.minecraftVersion);
+        } else {
+            alert("Spigot mappings can only be imported from spigot repo zip (with info.json and csrg files).");
+        }
     } else {
         alert("No import type selected");
         return;
@@ -2468,25 +2647,23 @@ async function updateExportMappingOptions() {
 
 function getFallbackMapping(map: MappingTypes) {
     switch (map) {
-        case MappingTypes.OBF:
-            return map;
-        case MappingTypes.MOJMAP:
-            return MappingTypes.OBF;
         case MappingTypes.PARCHMENT:
             return MappingTypes.MOJMAP;
         case MappingTypes.SRG:
             return MappingTypes.OBF;
         case MappingTypes.MCP:
             return MappingTypes.SRG;
-        case MappingTypes.INTERMEDIARY:
-            return MappingTypes.OBF;
         case MappingTypes.YARN:
             return MappingTypes.INTERMEDIARY;
-        case MappingTypes.HASHED:
-            return MappingTypes.OBF;
         case MappingTypes.QUILT:
-            return MappingTypes.OBF;
+            return MappingTypes.HASHED;
+        case MappingTypes.OBF:
+        case MappingTypes.MOJMAP:
+        case MappingTypes.INTERMEDIARY:
+        case MappingTypes.HASHED:
+        case MappingTypes.SPIGOT:
     }
+    return MappingTypes.OBF;
 }
 
 async function exportMappings() {
@@ -2582,7 +2759,7 @@ let selectedMethod: HTMLTableRowElement | null = null;
         await setLoading(true);
         mappings = new ClassMappings(<MCVersionSlug>(<HTMLSelectElement>e.target).value);
         localStorage.setItem("versionSelect.value", (<HTMLSelectElement>e.target).value);
-        mappings.loadEnabledMappings(getEnabledMappings(mappings.mcversion)).then(() => {
+        mappings.loadEnabledMappings(await getEnabledMappings(mappings.mcversion)).then(() => {
             search(searchInput.value, parseInt(searchType.value));
         });
     });
@@ -2694,6 +2871,17 @@ let selectedMethod: HTMLTableRowElement | null = null;
         }
     });
 
+    spigotMappingCheck.addEventListener("change", (e) => {
+        localStorage.setItem("spigotMappingCheck.value", (<HTMLInputElement>e.target).checked.toString());
+        if ((<HTMLInputElement>e.target).checked) {
+            mappings.getSpigotMappings().then(() => {
+                search(searchInput.value, parseInt(searchType.value));
+            });
+        } else {
+            search(searchInput.value, parseInt(searchType.value));
+        }
+    });
+
     settingsBtn.addEventListener("click", () => {
         // @ts-ignore
         settings.style.display = null;
@@ -2725,8 +2913,8 @@ let selectedMethod: HTMLTableRowElement | null = null;
         search(searchInput.value, parseInt(searchType.value));
     })
 
-    loadMinecraftVersions().then(() => {
-        mappings.loadEnabledMappings(getEnabledMappings(mappings.mcversion)).then(() => {
+    loadMinecraftVersions().then(async () => {
+        mappings.loadEnabledMappings(await getEnabledMappings(mappings.mcversion)).then(() => {
             search(searchInput.value, parseInt(searchType.value));
         });
     });

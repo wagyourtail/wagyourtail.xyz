@@ -114,6 +114,10 @@ html
                                     input#quiltMappingCheck(type= "checkbox" disabled)
                                     |  Quilt
                                 select#quiltVersionSelect(style= "visibility: hidden;")
+                            .mapping
+                                label(for="spigotMappingCheck")
+                                    input#spigotMappingCheck(type= "checkbox" disabled)
+                                    |  Spigot
                         .signatures
                             h4 Signatures
                             label(for="mojangSignatureCheck")
@@ -137,6 +141,9 @@ html
                             label(for="quiltSignatureCheck")
                                 input#quiltSignatureCheck(type= "checkbox")
                                 |  Quilt
+                            label(for="spigotSignatureCheck")
+                                input#spigotSignatureCheck(type= "checkbox")
+                                |  Spigot
                     div
                         .button#closeSettings close
             .popup#exportPop(style= "display: none;")
@@ -204,6 +211,9 @@ html
                         label(for= "quiltImport")
                             input#quiltImport(type= "radio" name= "importMapping" value= "quilt")
                             |  quilt
+                        label(for= "spigotImport")
+                            input#spigotImport(type= "radio" name= "importMapping" value= "spigot")
+                            |  Spigot
                     div
                         .button#confirmImport confirm
                     div
