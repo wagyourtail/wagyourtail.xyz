@@ -1371,7 +1371,7 @@ class ClassMappings {
         let res: Response = await fetch(`${NO_CORS_BYPASS}/https://hub.spigotmc.org/stash/rest/api/latest/projects/SPIGOT/repos/builddata/archive?at=${spigotNoManifest[this.mcversion]}&format=zip`);
         profilerDel("Downloading Spigot Mappings");
         const zipContent = await zip.loadAsync(await res.arrayBuffer());
-        this.loadSpigotMappings(zipContent, this.mcversion);
+        await this.loadSpigotMappings(zipContent, this.mcversion);
     }
 
     async loadSpigotMappings(spigotMappingZip: {file(path: string): JSZipObject | null}, descrim: string) {
@@ -1390,7 +1390,7 @@ class ClassMappings {
 
         const memberMappings = await spigotMappingZip.file(`mappings/bukkit-${descrim}-members.csrg`)?.async("string");
         let currentClass: ClassData | null | undefined = null;
-        for (const line of classMappings?.split("\n") ?? []) {
+        for (const line of memberMappings?.split("\n") ?? []) {
             const parts = line.trim().split(" ");
             if (line.trim() == "" || parts[0].startsWith("#")) continue;
             currentClass = await this.getOrAddClass(parts[0], MappingTypes.SPIGOT);
@@ -1405,7 +1405,7 @@ class ClassMappings {
                 const fd = await currentClass.getOrAddField(parts[1], null, MappingTypes.OBF);
                 fd?.addMapping(MappingTypes.SPIGOT, parts[2]);
             } else {
-                console.error("UNKNOWN MAPPING PART!");
+                console.error("UNKNOWN MAPPING PART!: " + line);
             }
         }
 
