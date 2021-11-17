@@ -84,7 +84,6 @@ declare const fallbackToOBF: HTMLInputElement;
 
 const NO_CORS_BYPASS = "/Projects/CORS-Bypass/App";
 
-const zip = new JSZip();
 let mcManifest: MCVersionManifest;
 let yarnManifest: YarnVersionManifest;
 let mcpManifest: MCPVersionManifest;
@@ -738,7 +737,7 @@ class ClassMappings {
 
         let res = await fetch(`${NO_CORS_BYPASS}/https://ldtteam.jfrog.io/ui/api/v1/download?repoKey=parchmentmc-public&path=org%252Fparchmentmc%252Fdata%252Fparchment-${this.mcversion}%252F${version}%252Fparchment-${this.mcversion}-${versionName}-checked.zip`);
         profilerDel("Downloading Parchment Mappings");
-
+        const zip = new JSZip();
         const zipContent = await zip.loadAsync(await res.arrayBuffer());
         const content = await zipContent.file("parchment.json")?.async("string");
         if (content) {
@@ -847,6 +846,7 @@ class ClassMappings {
             res = await fetch(`${NO_CORS_BYPASS}/http://export.mcpbot.bspk.rs/mcp/${this.mcversion}/mcp-${this.mcversion}-srg.zip`);
         }
         profilerDel("Downloading SRG Mappings");
+        const zip = new JSZip();
         const zipContent = await zip.loadAsync(await res.arrayBuffer());
         const file = zipContent.file("config/joined.tsrg");
         if (file) {
@@ -1028,7 +1028,7 @@ class ClassMappings {
         profiler("Downloading MCP Mappings");
         const res = await fetch(`${NO_CORS_BYPASS}/https://files.minecraftforge.net/maven/de/oceanlabs/mcp/mcp_${channel}/${version}-${this.mcversion}/mcp_${channel}-${version}-${this.mcversion}.zip`);
         profilerDel("Downloading MCP Mappings");
-
+        const zip = new JSZip();
         await this.loadMCPMappings(await zip.loadAsync(await res.arrayBuffer()));
     }
 
@@ -1115,6 +1115,7 @@ class ClassMappings {
         else
             res = await fetch(`${NO_CORS_BYPASS}/https://maven.legacyfabric.net/net/fabricmc/intermediary/${this.mcversion}/intermediary-${this.mcversion}-v2.jar`);
         profilerDel("Downloading Yarn Intermediary Mappings");
+        const zip = new JSZip();
         const zipContent = await zip.loadAsync(await res.arrayBuffer());
 
         const mappings = await zipContent.file("mappings/mappings.tiny")?.async("string");
@@ -1150,6 +1151,7 @@ class ClassMappings {
         else
             res = await fetch(`${NO_CORS_BYPASS}/https://maven.legacyfabric.net/net/fabricmc/yarn/${this.mcversion}+build.${version}/yarn-${this.mcversion}+build.${version}-v2.jar`);
         profilerDel("Downloading Yarn Mappings");
+        const zip = new JSZip();
         const zipContent = await zip.loadAsync(await res.arrayBuffer());
         const mappings = await zipContent.file("mappings/mappings.tiny")?.async("string");
         if (mappings) {
@@ -1290,9 +1292,10 @@ class ClassMappings {
 
         let res: Response = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/snapshot/org/quiltmc/${hashed}/${this.mcversion}-SNAPSHOT/${hashed}-${this.mcversion}-${timestamp}-${build}.jar`);
         profilerDel("Downloading Yarn Intermediary Mappings");
+        const zip = new JSZip();
         const zipContent = await zip.loadAsync(await res.arrayBuffer());
 
-        const mappings = await zipContent.file("hashed/mappings.tiny")?.async("string");
+        const mappings = await zipContent.file("hashed/mappings.tiny")?.async("string") ?? await zipContent.file("mappings/mappings.tiny")?.async("string");
         if (mappings) {
             await this.loadHashedMappings(mappings);
         } else {
@@ -1320,6 +1323,7 @@ class ClassMappings {
         profiler("Downloading Quilt Mappings");
         let res: Response = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/release/org/quiltmc/quilt-mappings/${this.mcversion}+build.${version}/quilt-mappings-${this.mcversion}+build.${version}-v2.jar`);
         profilerDel("Downloading Quilt Mappings");
+        const zip = new JSZip();
         const zipContent = await zip.loadAsync(await res.arrayBuffer());
         const mappings = await zipContent.file("hashed/mappings.tiny")?.async("string") ?? await zipContent.file("mappings/mappings.tiny")?.async("string");
         if (mappings) {
@@ -1371,6 +1375,7 @@ class ClassMappings {
         profiler("Downloading Spigot Mappings");
         let res: Response = await fetch(`${NO_CORS_BYPASS}/https://hub.spigotmc.org/stash/rest/api/latest/projects/SPIGOT/repos/builddata/archive?at=${spigotNoManifest[this.mcversion]}&format=zip`);
         profilerDel("Downloading Spigot Mappings");
+        const zip = new JSZip();
         const zipContent = await zip.loadAsync(await res.arrayBuffer());
         await this.loadSpigotMappings(zipContent, this.mcversion);
     }
@@ -2441,10 +2446,7 @@ async function importMappings() {
     if (file.name.endsWith(".jar") || file.name.endsWith(".zip")) {
         const zip = await JSZip.loadAsync(file);
         let zf;
-        if (zf = zip.file("mappings/mappings.tiny")) {
-            contents = await zf.async("string");
-            mappingType = MappingFileTypes.TINY;
-        } else if (zf = zip.file("hashed/mappings.tiny")) {
+        if (zf = zip.file("mappings/mappings.tiny") ?? zip.file("hashed/mappings.tiny")) {
             contents = await zf.async("string");
             mappingType = MappingFileTypes.TINY;
         } else if (zf = zip.file("joined.srg")) {
