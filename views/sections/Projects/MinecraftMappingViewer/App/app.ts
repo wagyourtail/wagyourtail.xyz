@@ -337,6 +337,7 @@ async function loadMinecraftVersions() {
     }
 
     if (!mappings || mappings.mcversion !== versionSelect.value) {
+        await loadNoManifests(<MCVersionSlug>versionSelect.value);
         mappings = new ClassMappings(<MCVersionSlug>versionSelect.value);
     }
 }
@@ -1320,7 +1321,7 @@ class ClassMappings {
         let res: Response = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/release/org/quiltmc/quilt-mappings/${this.mcversion}+build.${version}/quilt-mappings-${this.mcversion}+build.${version}-v2.jar`);
         profilerDel("Downloading Quilt Mappings");
         const zipContent = await zip.loadAsync(await res.arrayBuffer());
-        const mappings = await zipContent.file("hashed/mappings.tiny")?.async("string");
+        const mappings = await zipContent.file("hashed/mappings.tiny")?.async("string") ?? await zipContent.file("mappings/mappings.tiny")?.async("string");
         if (mappings) {
             await this.loadQuiltMappings(mappings);
         } else {
@@ -1649,21 +1650,6 @@ async function getEnabledMappings(mcVersion: MCVersionSlug): Promise<MappingType
         mojangMappingCheck.disabled = true;
     }
 
-    // update if parchment has mappings for current mc version
-    if (parchmentNoManifest[mcVersion] == undefined) {
-        const xmlParse = new DOMParser();
-        profiler(`Getting Parchment ${mcVersion} Versions`);
-
-        const parchmentRes = await fetch(`${NO_CORS_BYPASS}/https://ldtteam.jfrog.io/ui/api/v1/download?repoKey=parchmentmc-public&path=org%252Fparchmentmc%252Fdata%252Fparchment-${mcVersion}%252Fmaven-metadata.xml`);
-        profilerDel(`Getting Parchment ${mcVersion} Versions`);
-        if (parchmentRes.status != 200) {
-            parchmentNoManifest[mcVersion] = [];
-        } else {
-            const interXML = xmlParse.parseFromString(await parchmentRes.text(), "text/xml");
-            parchmentNoManifest[mcVersion] = Array.from(interXML.getElementsByTagName("versions")[0].children).map(e => e.innerHTML).reverse();
-        }
-    }
-
     if (parchmentNoManifest[mcVersion]?.length) {
         parchmentMappingCheck.disabled = false;
         // @ts-ignore
@@ -1737,18 +1723,6 @@ async function getEnabledMappings(mcVersion: MCVersionSlug): Promise<MappingType
     } else {
         quiltMappingCheck.disabled = true;
         quiltVersionSelect.style.visibility = "hidden";
-    }
-
-    // update if spigot has mappings for current mc version
-    if (spigotNoManifest[mcVersion] === undefined) {
-        profiler(`Getting Spigot ${mcVersion} Versions`);
-        const spigotResp = await fetch(`${NO_CORS_BYPASS}/https://hub.spigotmc.org/versions/${mcVersion}.json`);
-        profilerDel(`Getting Spigot ${mcVersion} Versions`);
-        if (spigotResp.status != 200) {
-            spigotNoManifest[mcVersion] = null;
-        } else {
-            spigotNoManifest[mcVersion] = JSON.parse(await spigotResp.text()).refs.BuildData;
-        }
     }
 
     if (spigotNoManifest[mcVersion]) {
@@ -2645,6 +2619,35 @@ async function updateExportMappingOptions() {
     }
 }
 
+async function loadNoManifests(mcVersion: MCVersionSlug) {
+    // update if parchment has mappings for current mc version
+    if (parchmentNoManifest[mcVersion] == undefined) {
+        const xmlParse = new DOMParser();
+        profiler(`Getting Parchment ${mcVersion} Versions`);
+
+        const parchmentRes = await fetch(`${NO_CORS_BYPASS}/https://ldtteam.jfrog.io/ui/api/v1/download?repoKey=parchmentmc-public&path=org%252Fparchmentmc%252Fdata%252Fparchment-${mcVersion}%252Fmaven-metadata.xml`);
+        profilerDel(`Getting Parchment ${mcVersion} Versions`);
+        if (parchmentRes.status != 200) {
+            parchmentNoManifest[mcVersion] = [];
+        } else {
+            const interXML = xmlParse.parseFromString(await parchmentRes.text(), "text/xml");
+            parchmentNoManifest[mcVersion] = Array.from(interXML.getElementsByTagName("versions")[0].children).map(e => e.innerHTML).reverse();
+        }
+    }
+
+    // update if spigot has mappings for current mc version
+    if (spigotNoManifest[mcVersion] === undefined) {
+        profiler(`Getting Spigot ${mcVersion} Versions`);
+        const spigotResp = await fetch(`${NO_CORS_BYPASS}/https://hub.spigotmc.org/versions/${mcVersion}.json`);
+        profilerDel(`Getting Spigot ${mcVersion} Versions`);
+        if (spigotResp.status != 200) {
+            spigotNoManifest[mcVersion] = null;
+        } else {
+            spigotNoManifest[mcVersion] = JSON.parse(await spigotResp.text()).refs.BuildData;
+        }
+    }
+}
+
 function getFallbackMapping(map: MappingTypes) {
     switch (map) {
         case MappingTypes.PARCHMENT:
@@ -2757,6 +2760,7 @@ let selectedMethod: HTMLTableRowElement | null = null;
 
     versionSelect.addEventListener("change", async (e) => {
         await setLoading(true);
+        await loadNoManifests(<MCVersionSlug>(<HTMLSelectElement>e.target).value);
         mappings = new ClassMappings(<MCVersionSlug>(<HTMLSelectElement>e.target).value);
         localStorage.setItem("versionSelect.value", (<HTMLSelectElement>e.target).value);
         mappings.loadEnabledMappings(await getEnabledMappings(mappings.mcversion)).then(() => {
