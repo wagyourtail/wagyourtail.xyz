@@ -843,7 +843,7 @@ class ClassMappings {
         if (mcVersionCompare(this.mcversion, "1.12.2") != -1) {
             res = await fetch(`${NO_CORS_BYPASS}/https://files.minecraftforge.net/maven/de/oceanlabs/mcp/mcp_config/${this.mcversion}/mcp_config-${this.mcversion}.zip`);
         } else {
-            res = await fetch(`${NO_CORS_BYPASS}/http://export.mcpbot.bspk.rs/mcp/${this.mcversion}/mcp-${this.mcversion}-srg.zip`);
+            res = await fetch(`${NO_CORS_BYPASS}/https://maven.minecraftforge.net/de/oceanlabs/mcp/mcp/${this.mcversion}/mcp-${this.mcversion}-srg.zip"`);
         }
         profilerDel("Downloading SRG Mappings");
         const zip = new JSZip();
