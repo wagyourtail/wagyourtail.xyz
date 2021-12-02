@@ -447,7 +447,7 @@ class ClassMappings {
         }
         return (<string>desc).replace(/L(.+?);/g, (match, p1) => {
             const clazz = this.classes.get(p1);
-            p1 = clazz?.getMapping(to) ?? (backup ? clazz?.getMapping(backup) ?? p1 : p1);
+            p1 = clazz?.getMapping(to) || (backup ? clazz?.getMapping(backup) || p1 : p1);
             return `L${p1};`;
         });
     }
