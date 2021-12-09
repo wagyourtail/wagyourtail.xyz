@@ -890,7 +890,7 @@ class ClassMappings {
                 case "CL:":
                     (await this.getOrAddClass(current_line[1], MappingTypes.OBF))?.addMapping(MappingTypes.SRG, current_line[2]);
                     break;
-                case "FD": {
+                case "FD:": {
                     const obf_parts = current_line[1].match(/(.+)\/([^\/]+)$/);
                     const srg_parts = current_line[2].match(/(.+)\/([^\/]+)$/);
                     const current_class = await this.getOrAddClass(<string>obf_parts?.[1], MappingTypes.OBF);
