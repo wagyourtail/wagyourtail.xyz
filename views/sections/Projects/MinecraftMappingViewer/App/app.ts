@@ -422,7 +422,7 @@ class ClassMappings {
                 if (clazz.getMapping(from) === p1) {
                     return `L${clazz.obfName};`;
                 }
-                if (backup && clazz.getMapping(backup) == p1) {
+                if (backup !== null && clazz.getMapping(backup) === p1) {
                     return `L${clazz.obfName};`;
                 }
             }
