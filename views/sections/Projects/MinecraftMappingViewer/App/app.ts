@@ -447,7 +447,7 @@ class ClassMappings {
         }
         return (<string>desc).replace(/L(.+?);/g, (match, p1) => {
             const clazz = this.classes.get(p1);
-            p1 = clazz?.getMapping(to) || (backup ? clazz?.getMapping(backup) || p1 : p1);
+            p1 = clazz?.getMapping(to) || (backup !== null ? clazz?.getMapping(backup) || p1 : p1);
             return `L${p1};`;
         });
     }
@@ -1513,7 +1513,7 @@ abstract class ClassItem extends AbstractData {
         return this.obfDesc.replace(/L(.+?);/g, (match, p1) => {
             const clz = this.classMappings.classes.get(p1);
             const mapped = clz?.getMappingWithFallback(mappingType, fallbackMappingType);
-            return `L${!mapped || mapped == "-" ? p1 : mapped};`;
+            return `L${!mapped || mapped == "-" || !mapped ? p1 : mapped};`;
         });
     }
 
@@ -1525,7 +1525,7 @@ abstract class ClassItem extends AbstractData {
         return this.obfDesc.replace(/L(.+?);/g, (match, p1) => {
             const clz = this.classMappings.classes.get(p1);
             const mapped = clz?.getMappingWithDoubleFallback(mappingType, fallbackMappingType, fallback2MappingType);
-            return `L${mapped == "-" ? p1 : mapped};`;
+            return `L${mapped == "-" || !mapped ? p1 : mapped};`;
         });
     }
 
