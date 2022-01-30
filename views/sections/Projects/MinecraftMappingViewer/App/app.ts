@@ -198,7 +198,12 @@ async function loadMinecraftVersions() {
         const yarnXML = xmlParse.parseFromString(await yarnRes.text(), "text/xml");
         Array.from(yarnXML.getElementsByTagName("versions")[0].children).forEach(e => {
             const innerHTML = e.innerHTML;
-            yarnManifest[innerHTML.split("+")[0]].push(parseInt(<string>innerHTML.split(".").pop()));
+            const mcVersion = innerHTML.split("+")[0];
+            if (mcVersion in yarnManifest) {
+                yarnManifest[mcVersion].push(parseInt(<string>innerHTML.split(".").pop()));
+            } else {
+                console.warn("mcVersion not in manifest??? full yarn version id:", innerHTML);
+            }
         });
     }
 
