@@ -1419,7 +1419,8 @@ class ClassMappings {
                 console.error("UNKNOWN MAPPING PART!: " + line);
             }
         }
-
+        
+        this.loadedMappings.add(MappingTypes.SPIGOT);
         profilerDel("Parsing Spigot Mappings");
     }
 }
