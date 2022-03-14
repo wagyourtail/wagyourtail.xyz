@@ -1,4 +1,3 @@
-import e from "express";
 import * as jsz from "jszip";
 import { JSZipObject } from "jszip";
 
@@ -103,9 +102,7 @@ interface ParchmentNoManifest {
     [mcversion: string]: string[]
 }
 
-interface HashedMojmapManifest {
-    [mcversion: string]: string
-}
+type HashedMojmapManifest = Set<string>;
 
 interface QuiltManifest {
     [mcversion: string]: number[]
@@ -258,7 +255,7 @@ async function loadMinecraftVersions() {
 
     // hashed mojmap versions
     if (hashedMojmapManifest == null) {
-        hashedMojmapManifest = {};
+        hashedMojmapManifest = new Set();
         let metaRes: Response;
         profiler("Downloading Hashed Mojmap Mappings");
 
@@ -272,7 +269,7 @@ async function loadMinecraftVersions() {
         metaRes = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/release/org/quiltmc/hashed/maven-metadata.xml`);
         const interXML2 = xmlParse.parseFromString(await metaRes.text(), "text/xml");
         for (const version of Array.from(interXML2.getElementsByTagName("version"))) {
-            hashedMojmapManifest[version.innerHTML.split("-SNAPSHOT")[0]] = "hashed";
+            hashedMojmapManifest.add(version.innerHTML.split("-SNAPSHOT")[0]);
         }
         profilerDel("Downloading Hashed Mojmap Mappings");
     }
@@ -1052,7 +1049,7 @@ class ClassMappings {
             const field_list = fields.split("\n");
             field_list.shift() // remove header
             while (field_list.length) {
-                const current_field = field_list.shift()?.split(",").map(e => e.trim());
+                const current_field = field_list.shift()?.split(",").map((e: string) => e.trim());
                 if (!current_field || current_field.length <= 1) continue;
                 const id = current_field[0].match(/\d+/)?.[0];
                 if (!id) {
@@ -1069,7 +1066,7 @@ class ClassMappings {
             const method_list = methods.split("\n");
             method_list.shift() // remove header
             while (method_list.length) {
-                const current_method = method_list.shift()?.split(",").map(e => e.trim());
+                const current_method = method_list.shift()?.split(",").map((e: string) => e.trim());
                 if (!current_method || current_method.length <= 1) continue;
                 const id = current_method[0].match(/\d+/)?.[0];
                 if (!id) {
@@ -1086,7 +1083,7 @@ class ClassMappings {
             const param_list = params.split("\n");
             param_list.shift() //remove header
             while (param_list.length) {
-                const current_param = param_list.shift()?.split(",").map(e => e.trim());
+                const current_param = param_list.shift()?.split(",").map((e: string) => e.trim());
                 if (!current_param || current_param.length <= 1) continue;
                 const srg_parts = current_param[0].replace(/_/g, " ").trim().split(" ");
                 //new params (tsrg2), this shouldn't be used as I didn't add 1.17 mcp mappings to the override list
@@ -1285,17 +1282,8 @@ class ClassMappings {
 
     async getHashedMappings() {
         profiler("Downloading Yarn Intermediary Mappings");
-        const hashed = hashedMojmapManifest[this.mcversion];
-        let metaRes: Response = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/release/org/quiltmc/${hashed}/${this.mcversion}-SNAPSHOT/maven-metadata.xml`);
 
-        const xmlParse = new DOMParser();
-        const interXML = xmlParse.parseFromString(await metaRes.text(), "text/xml");
-        const current = interXML.getElementsByTagName("snapshot")[0];
-        const timestamp = current.getElementsByTagName("timestamp")[0].innerHTML;
-        const build = current.getElementsByTagName("buildNumber")[0].innerHTML;
-
-
-        let res: Response = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/release/org/quiltmc/${hashed}/${this.mcversion}-SNAPSHOT/${hashed}-${this.mcversion}-${timestamp}-${build}.jar`);
+        let res: Response = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/release/org/quiltmc/hashed/${this.mcversion}/hashed-${this.mcversion}.jar`);
         profilerDel("Downloading Yarn Intermediary Mappings");
         const zip = new JSZip();
         const zipContent = await zip.loadAsync(await res.arrayBuffer());
@@ -1304,7 +1292,7 @@ class ClassMappings {
         if (mappings) {
             await this.loadHashedMappings(mappings);
         } else {
-            console.error("ERROR PARSING INTERMEDIARY MAPPINGS ZIP!");
+            console.error("ERROR PARSING HASHED MAPPINGS ZIP!");
         }
     }
 
@@ -1715,7 +1703,7 @@ async function getEnabledMappings(mcVersion: MCVersionSlug): Promise<MappingType
         mcpVersionSelect.style.visibility = "hidden";
     }
 
-    if (mcVersion in hashedMojmapManifest) {
+    if (hashedMojmapManifest.has(mcVersion)) {
         hashedMojmapCheck.disabled = false;
         if (hashedMojmapCheck.checked) {
             checked.push(MappingTypes.HASHED);
@@ -2460,7 +2448,7 @@ async function importMappings() {
             mappingType = MappingFileTypes.SRG;
         } else if (zf = zip.file("config/joined.tsrg")) {
             contents = await zf.async("string");
-            mappingType = contents.startsWith("tsrg2") ? MappingFileTypes.TSRG2 : MappingFileTypes.TSRG;
+            mappingType = (<string>contents).startsWith("tsrg2") ? MappingFileTypes.TSRG2 : MappingFileTypes.TSRG;
         } else if (zf = zip.file("parchment.json")) {
             contents = await zf.async("string");
             mappingType = MappingFileTypes.PARCHMENT;
