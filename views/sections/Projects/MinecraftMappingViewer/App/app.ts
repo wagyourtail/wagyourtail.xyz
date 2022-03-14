@@ -262,14 +262,14 @@ async function loadMinecraftVersions() {
         let metaRes: Response;
         profiler("Downloading Hashed Mojmap Mappings");
 
-        metaRes = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/snapshot/org/quiltmc/hashed-mojmap/maven-metadata.xml`);
+        // metaRes = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/release/org/quiltmc/hashed-mojmap/maven-metadata.xml`);
         const xmlParse = new DOMParser();
-        const interXML = xmlParse.parseFromString(await metaRes.text(), "text/xml");
-        for (const version of Array.from(interXML.getElementsByTagName("version"))) {
-            hashedMojmapManifest[version.innerHTML.split("-SNAPSHOT")[0]] = "hashed-mojmap";
-        }
+        // const interXML = xmlParse.parseFromString(await metaRes.text(), "text/xml");
+        // for (const version of Array.from(interXML.getElementsByTagName("version"))) {
+        //     hashedMojmapManifest[version.innerHTML.split("-SNAPSHOT")[0]] = "hashed-mojmap";
+        // }
 
-        metaRes = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/snapshot/org/quiltmc/hashed/maven-metadata.xml`);
+        metaRes = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/release/org/quiltmc/hashed/maven-metadata.xml`);
         const interXML2 = xmlParse.parseFromString(await metaRes.text(), "text/xml");
         for (const version of Array.from(interXML2.getElementsByTagName("version"))) {
             hashedMojmapManifest[version.innerHTML.split("-SNAPSHOT")[0]] = "hashed";
@@ -1286,7 +1286,7 @@ class ClassMappings {
     async getHashedMappings() {
         profiler("Downloading Yarn Intermediary Mappings");
         const hashed = hashedMojmapManifest[this.mcversion];
-        let metaRes: Response = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/snapshot/org/quiltmc/${hashed}/${this.mcversion}-SNAPSHOT/maven-metadata.xml`);
+        let metaRes: Response = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/release/org/quiltmc/${hashed}/${this.mcversion}-SNAPSHOT/maven-metadata.xml`);
 
         const xmlParse = new DOMParser();
         const interXML = xmlParse.parseFromString(await metaRes.text(), "text/xml");
@@ -1295,7 +1295,7 @@ class ClassMappings {
         const build = current.getElementsByTagName("buildNumber")[0].innerHTML;
 
 
-        let res: Response = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/snapshot/org/quiltmc/${hashed}/${this.mcversion}-SNAPSHOT/${hashed}-${this.mcversion}-${timestamp}-${build}.jar`);
+        let res: Response = await fetch(`${NO_CORS_BYPASS}/https://maven.quiltmc.org/repository/release/org/quiltmc/${hashed}/${this.mcversion}-SNAPSHOT/${hashed}-${this.mcversion}-${timestamp}-${build}.jar`);
         profilerDel("Downloading Yarn Intermediary Mappings");
         const zip = new JSZip();
         const zipContent = await zip.loadAsync(await res.arrayBuffer());
