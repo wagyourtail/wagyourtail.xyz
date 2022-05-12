@@ -8,8 +8,7 @@
     "declaration": false,
     "strict": true,
     "esModuleInterop": true,
-    "experimentalDecorators": true,
-    "allowSyntheticDefaultImports": true
+    "experimentalDecorators": true
   },
   "include": [
     "./server.ts"

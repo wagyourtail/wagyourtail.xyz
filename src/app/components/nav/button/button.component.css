@@ -1,0 +1,32 @@
+.nav-button {
+  color: white;
+  padding-top: 10px;
+  text-align: center;
+  margin-bottom: 30px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.nav-button-title {
+  font-size: 1.5em;
+  padding-top: 10px;
+}
+
+.nav-button-description {
+  font-size: .75em;
+  overflow: hidden;
+  transition: max-height 2s linear;
+  max-height: 0;
+  margin-bottom: 10px;
+}
+
+.nav-button:hover .nav-button-title {
+  background-color: rgb(60, 60, 60);
+  font-weight: bold;
+}
+
+.nav-button:hover .nav-button-description {
+  max-height: 1500px;
+  display: block;
+  background-color: rgb(50, 50, 50);
+}

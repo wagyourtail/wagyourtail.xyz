@@ -1,0 +1,5 @@
+<nav>
+  <app-section *ngFor="let section of NavItems" [section]="section"></app-section>
+  <div [ngStyle]="{'margin-top': 'auto'}"></div>
+  <app-button *ngFor="let button of BottomItems" [item]="button" target="_blank"></app-button>
+</nav>

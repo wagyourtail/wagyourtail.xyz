@@ -1,0 +1,10 @@
+.nav-section {
+  color: white;
+  padding: 10px 0;
+  text-align: center;
+  margin-bottom: 5px;
+  font-size: 1.5em;
+  cursor: default;
+  border-top: 1px solid rgb(60, 60, 60);
+  border-bottom: 3px solid rgb(60, 60, 60);
+}
