@@ -10,6 +10,12 @@ class MappingViewerListener extends PageListener {
         app.get("/Projects/MinecraftMappingViewer/App", (req, res) => {
             res.render("sections/Projects/MinecraftMappingViewer/app");
         })
+        app.get("/Projects/MinecraftMappingViewer/worker.js", (req, res) => {
+            res.sendFile(__dirname + "/App/worker.js");
+        });
+        app.get("/Projects/MinecraftMappingViewer/xmldom.js", (req, res) => {
+            res.sendFile(__dirname + "/App/xmldom.js");
+        });
         app.get("/Projects/CORS-Bypass/App/*", async (req, res) => {
             const requrl = req.url.split("App/")[1];
             try {

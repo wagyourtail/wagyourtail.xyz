@@ -3,5 +3,8 @@ old/
 *.js
 .idea/
 
+
+!views/sections/Projects/MinecraftMappingViewer/App/xmldom.js
+
 package-lock.json
 
