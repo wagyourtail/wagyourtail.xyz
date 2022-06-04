@@ -241,6 +241,7 @@ async function loadManifests() {
 }
 
 function sendManifests() {
+//@ts-ignore
     postMessage({ type: "manifests", manifests: manifests });
 }
 
@@ -290,6 +291,7 @@ async function loadNoManifests(mcVersion: MCVersionSlug) {
 }
 
 function sendNoManifests() {
+//@ts-ignore
     postMessage({ type: "noManifests", manifests: manifests });
 }
 
@@ -313,10 +315,12 @@ type ReversedMappings = {
 };
 
 function sendMojmapLoaded() {
+//@ts-ignore
     postMessage({ type: "mojmapLoaded" });
 }
 
 function sendLoadedMappingsUpdate(loaded: MappingTypes[]) {
+//@ts-ignore
     postMessage({ type: "loadedMappings", mappings: loaded });
 }
 
@@ -1484,10 +1488,12 @@ class ClassData extends AbstractData {
 }
 
 function profiler(message: string) {
+//@ts-ignore
     postMessage({ type: "profiler", message: message });
 }
 
 function profilerDel(message: string) {
+//@ts-ignore
     postMessage({ type: "profilerDel", message: message });
 }
 
@@ -1690,6 +1696,7 @@ async function onRequestClassData(classObfName: string, enabledMappings: Mapping
 }
 
 function sendClassData(classData: ClassData, methods: string[][], fields: string[][], enabledMappings: MappingTypes[]) {
+//@ts-ignore
     postMessage({ type: "classData", classData: classData, methods: methods, fields: fields, enabledMappings: enabledMappings });
 }
 
@@ -1774,6 +1781,8 @@ async function onSearch(value: string, type: SearchType) {
 }
 
 function sendSearchResults(results: ClassData[], enabled: MappingTypes[], value: string) {
+    //@ts-ignore
+//@ts-ignore
     postMessage({ type: "searchResults", results: results, enabled: enabled, value: value });
 }
 
@@ -1858,6 +1867,7 @@ async function onImportMappings(target: MappingTypes, mappingType: MappingFileTy
 }
 
 function sendImportMappingsDone(target: MappingTypes) {
+//@ts-ignore
     postMessage({ type: "importMappingsDone", target: target });
 }
 
@@ -1942,6 +1952,7 @@ async function onRequestExport(from_mapping: MappingTypes,
 }
 
 async function sendExportedMappings(exportString: string) {
+//@ts-ignore
     postMessage({ type: "export", data: exportString });
 }
 
