@@ -1516,6 +1516,9 @@ onmessage = (e) => {
         case "search":
             onSearch(data.value, data.sType);
             break;
+        case "requestClassData":
+            onRequestClassData(data.className, data.enabledMappings, data.sigChecks, data.fallback);
+            break;
         default:
             console.error(`S Unknown message type: ${data.type}`);
     }
@@ -1524,6 +1527,170 @@ onmessage = (e) => {
 async function onClearMappings(mapping: MappingTypes) {
     await mappings.clearMappings(mapping);
     sendLoadedMappingsUpdate([...mappings.loadedMappings.values()]);
+}
+
+
+async function onRequestClassData(classObfName: string, enabledMappings: MappingTypes[], sigTransform: MappingTypes[], fallbackTOOBF: boolean) {
+    const classData = await mappings.getOrAddClass(classObfName, MappingTypes.OBF);
+    if (classData == null) {
+        return;
+    }
+    const methods: string[][] = [];
+    //methods
+    for (const [methodName, methodData] of classData.methods) {
+        if (!methodName) continue;
+
+        const method = [];
+        method.push(methodName);
+        method.push(methodName.replace("<", "&lt;").replace(">", "&gt;"));
+
+        if (enabledMappings.includes(MappingTypes.MOJMAP)) {
+            let mojmapData = methodData.getMappingWithFallback(MappingTypes.MOJMAP, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.MOJMAP).replace("<", "&lt;").replace(">", "&gt;");
+            if (mojmapData != "-" && sigTransform.includes(MappingTypes.MOJMAP)) {
+                mojmapData += methodData.transformDescriptorWithFallback(MappingTypes.MOJMAP, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.MOJMAP);
+            }
+            method.push(mojmapData);
+        }
+
+        if (enabledMappings.includes(MappingTypes.SRG)) {
+            let srgData = methodData.getMappingWithFallback(MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG).replace("<", "&lt;").replace(">", "&gt;");
+            if (srgData != "-" && sigTransform.includes(MappingTypes.SRG)) {
+                srgData += methodData.transformDescriptorWithFallback(MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
+            }
+            method.push(srgData);
+        }
+
+        if (enabledMappings.includes(MappingTypes.MCP)) {
+            let mcpData = methodData.getMappingWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG).replace("<", "&lt;").replace(">", "&gt;");
+            if (mcpData != "-" && sigTransform.includes(MappingTypes.MCP)) {
+                mcpData += methodData.transformDescriptorWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
+            }
+            method.push(mcpData);
+        }
+
+        if (enabledMappings.includes(MappingTypes.INTERMEDIARY)) {
+            let yarnIntermediary = methodData.getMappingWithFallback(MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY).replace("<", "&lt;").replace(">", "&gt;");
+            if (yarnIntermediary != "-" && sigTransform.includes(MappingTypes.INTERMEDIARY)) {
+                yarnIntermediary += methodData.transformDescriptorWithFallback(MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
+            }
+            method.push(yarnIntermediary);
+        }
+
+        if (enabledMappings.includes(MappingTypes.YARN)) {
+            let yarn = methodData.getMappingWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY).replace("<", "&lt;").replace(">", "&gt;");
+            if (yarn != "-" && sigTransform.includes(MappingTypes.YARN)) {
+                yarn += methodData.transformDescriptorWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
+            }
+            method.push(yarn);
+        }
+
+        if (enabledMappings.includes(MappingTypes.HASHED)) {
+            let hashed = methodData.getMappingWithFallback(MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED).replace("<", "&lt;").replace(">", "&gt;");
+            if (hashed != "-" && sigTransform.includes(MappingTypes.HASHED)) {
+                hashed += methodData.transformDescriptorWithFallback(MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
+            }
+            method.push(hashed);
+        }
+
+        if (enabledMappings.includes(MappingTypes.QUILT)) {
+            let quilt = methodData.getMappingWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED).replace("<", "&lt;").replace(">", "&gt;");
+            if (quilt != "-" && sigTransform.includes(MappingTypes.QUILT)) {
+                quilt += methodData.transformDescriptorWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
+            }
+            method.push(quilt);
+        }
+
+        if (enabledMappings.includes(MappingTypes.SPIGOT)) {
+            let spigot = methodData.getMappingWithFallback(MappingTypes.SPIGOT, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SPIGOT).replace("<", "&lt;").replace(">", "&gt;");
+            if (spigot != "-" && sigTransform.includes(MappingTypes.SPIGOT)) {
+                spigot += methodData.transformDescriptorWithFallback(MappingTypes.SPIGOT, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SPIGOT);
+            }
+            method.push(spigot);
+        }
+
+        methods.push(method);
+    }
+
+    const fields: string[][] = [];
+
+    for (const [fieldName, fieldData] of classData.fields) {
+        if (!fieldName) continue;
+        let field = [];
+
+        field.push(fieldName);
+        field.push(fieldName + ":" + fieldData.transformDescriptor(MappingTypes.OBF));
+
+        if (enabledMappings.includes(MappingTypes.MOJMAP)) {
+            let mojang = fieldData.getMappingWithFallback(MappingTypes.MOJMAP, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.MOJMAP);
+            if (mojang != "-" && sigTransform.includes(MappingTypes.MOJMAP)) {
+                mojang += ":" + fieldData.transformDescriptorWithFallback(MappingTypes.MOJMAP, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.MOJMAP);
+            }
+            field.push(mojang);
+        }
+
+        if (enabledMappings.includes(MappingTypes.SRG)) {
+            let srg = fieldData.getMappingWithFallback(MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
+            if (srg != "-" && sigTransform.includes(MappingTypes.SRG)) {
+                srg += ":" + fieldData.transformDescriptorWithFallback(MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
+            }
+            field.push(srg);
+        }
+
+        if (enabledMappings.includes(MappingTypes.MCP)) {
+            let mcp = fieldData.getMappingWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
+            if (mcp != "-" && sigTransform.includes(MappingTypes.MCP)) {
+                mcp += ":" + fieldData.transformDescriptorWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
+            }
+            field.push(mcp);
+        }
+
+        if (enabledMappings.includes(MappingTypes.INTERMEDIARY)) {
+            let yarnIntermediary = fieldData.getMappingWithFallback(MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
+            if (yarnIntermediary != "-" && sigTransform.includes(MappingTypes.INTERMEDIARY)) {
+                yarnIntermediary += ":" + fieldData.transformDescriptorWithFallback(MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
+            }
+            field.push(yarnIntermediary);
+        }
+
+        if (enabledMappings.includes(MappingTypes.YARN)) {
+            let yarn = fieldData.getMappingWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
+            if (yarn != "-" && sigTransform.includes(MappingTypes.YARN)) {
+                yarn += ":" + fieldData.transformDescriptorWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
+            }
+            field.push(yarn);
+        }
+
+        if (enabledMappings.includes(MappingTypes.HASHED)) {
+            let hashed = fieldData.getMappingWithFallback(MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
+            if (hashed != "-" && sigTransform.includes(MappingTypes.HASHED)) {
+                hashed += ":" + fieldData.transformDescriptorWithFallback(MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
+            }
+            field.push(hashed);
+        }
+
+        if (enabledMappings.includes(MappingTypes.QUILT)) {
+            let quilt = fieldData.getMappingWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
+            if (quilt != "-" && sigTransform.includes(MappingTypes.QUILT)) {
+                quilt += ":" + fieldData.transformDescriptorWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
+            }
+            field.push(quilt);
+        }
+
+        if (enabledMappings.includes(MappingTypes.SPIGOT)) {
+            let spigot = fieldData.getMappingWithFallback(MappingTypes.SPIGOT, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SPIGOT);
+            if (spigot != "-" && sigTransform.includes(MappingTypes.SPIGOT)) {
+                spigot += ":" + fieldData.transformDescriptorWithFallback(MappingTypes.SPIGOT, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SPIGOT);
+            }
+            field.push(spigot);
+        }
+        fields.push(field);
+    }
+
+    sendClassData(classData, methods, fields, enabledMappings)
+}
+
+function sendClassData(classData: ClassData, methods: string[][], fields: string[][], enabledMappings: MappingTypes[]) {
+    postMessage({ type: "classData", classData: classData, methods: methods, fields: fields, enabledMappings: enabledMappings });
 }
 
 function onUpdateVersion(mapping: MappingTypes, data: string) {

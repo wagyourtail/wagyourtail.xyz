@@ -45,6 +45,8 @@ declare const srgSignatureCheck: HTMLInputElement;
 declare const mcpSignatureCheck: HTMLInputElement;
 declare const yarnIntermediarySignatureCheck: HTMLInputElement;
 declare const yarnSignatureCheck: HTMLInputElement;
+declare const hashedMojmapSignatureCheck: HTMLInputElement;
+declare const quiltSignatureCheck: HTMLInputElement;
 declare const spigotSignatureCheck: HTMLInputElement;
 declare const settingsBtn: HTMLDivElement;
 declare const closeSettings: HTMLDivElement;
@@ -115,6 +117,9 @@ worker.onmessage = async (e) => {
             break;
         case "importMappingsDone":
             await onImportMappingsDone(data.target);
+            break;
+        case "classData":
+            await onClassData(data.classData, data.methods, data.fields, data.enabledMappings);
             break;
         default:
             console.error("C Unknown message type: " + data.type);
@@ -794,273 +799,39 @@ async function sendEnabled() {
 worker.postMessage({ type: "enabled", enabled: enabled, mcpVersion: mcpVersion, yarnVersion: yarnVersion, parchmentVersion: parchmentVersion, quiltVersion: quiltVersion });
 }
 
-class ClassMappings {
+interface ClassMappings {
     readonly mcversion: MCVersionSlug;
-    readonly loadedMappings: Set<MappingTypes> = new Set();
+    readonly loadedMappings: Set<MappingTypes>;
 
-    readonly classes: Map<string, ClassData> = new Map();
-    readonly srgFields: Map<string, FieldData[]> = new Map();
-    readonly srgMethods: Map<string, MethodData[]> = new Map();
+    readonly classes: Map<string, ClassData>;
+    readonly srgFields: Map<string, FieldData[]>;
+    readonly srgMethods: Map<string, MethodData[]>;
 
-    loadedMCPVersion: null | [string, string] = null;
-    loadedYarnVersion: null | string = null;
-
-    constructor(mcversion: MCVersionSlug) {
-        this.mcversion = mcversion;
-    }
-
-    reverseTransformDesc(desc: string | null, from: MappingTypes): string | null {
-        if (from == MappingTypes.OBF) return desc;
-        let backup: MappingTypes | null = null;
-        switch (from) {
-            case MappingTypes.MCP:
-                backup = MappingTypes.SRG;
-                break;
-            case MappingTypes.YARN:
-                backup = MappingTypes.INTERMEDIARY;
-                break;
-            case MappingTypes.QUILT:
-                backup = MappingTypes.HASHED;
-                break;
-            default:
-        }
-        return (<string>desc).replace(/L(.+?);/g, (match, p1) => {
-            for (const clazz of this.classes.values()) {
-                if (clazz.getMapping(from) === p1) {
-                    return `L${clazz.obfName};`;
-                }
-                if (backup !== null && clazz.getMapping(backup) === p1) {
-                    return `L${clazz.obfName};`;
-                }
-            }
-            return `L${p1};`;
-        });
-    }
-
-    transformDesc(desc: string | null, to: MappingTypes): string | null {
-        if (to == MappingTypes.OBF) return desc;
-        let backup: MappingTypes | null = null;
-        switch (to) {
-            case MappingTypes.MCP:
-                backup = MappingTypes.SRG;
-                break;
-            case MappingTypes.YARN:
-                backup = MappingTypes.INTERMEDIARY;
-                break;
-            case MappingTypes.QUILT:
-                backup = MappingTypes.HASHED;
-                break;
-            default:
-        }
-        return (<string>desc).replace(/L(.+?);/g, (match, p1) => {
-            const clazz = this.classes.get(p1);
-            p1 = clazz?.getMapping(to) || (backup !== null ? clazz?.getMapping(backup) || p1 : p1);
-            return `L${p1};`;
-        });
-    }
+    loadedMCPVersion: null | [string, string];
+    loadedYarnVersion: null | string;
 }
-
-abstract class AbstractData {
+interface AbstractData {
     readonly classMappings: ClassMappings;
     readonly obfName: string;
-    readonly mappings: Map<MappingTypes, string> = new Map();
-    readonly comments: Map<MappingTypes, string> = new Map();
+    readonly mappings: Map<MappingTypes, string>;
+    readonly comments: Map<MappingTypes, string>;
+}
 
-    protected constructor(classMappings: ClassMappings, obfName: string) {
-        this.classMappings = classMappings;
-        this.obfName = obfName;
-    }
+interface ClassItem extends AbstractData {
+}
 
-    addMapping(mappingType: MappingTypes, name: string, comment?: string) {
-        if (mappingType === MappingTypes.OBF) {
-            throw new Error("Tried to change obf name!");
-        }
-        this.mappings.set(mappingType, name);
-        if (comment)
-            this.comments.set(mappingType, comment);
-    }
-
-    getMapping(mappingType: MappingTypes) {
-        if (mappingType === MappingTypes.OBF) {
-            return this.obfName;
-        }
-        return this.mappings.get(mappingType) ?? "-";
-    }
-
-    getMappingWithFallback(mappingType: MappingTypes, fallbackMappingType: MappingTypes) {
-        if (mappingType === MappingTypes.OBF) {
-            return this.obfName;
-        }
-        let mapping = this.mappings.get(mappingType);
-        if (!mapping) {
-            if (fallbackMappingType === MappingTypes.OBF) {
-                return this.obfName;
-            }
-            mapping = this.mappings.get(fallbackMappingType);
-        }
-        return mapping ?? "-";
-    }
-
-    getMappingWithDoubleFallback(mappingType: MappingTypes, fallbackMappingType: MappingTypes, fallback2MappingType: MappingTypes) {
-        if (mappingType === MappingTypes.OBF) {
-            return this.obfName;
-        }
-        let mapping = this.mappings.get(mappingType);
-        if (!mapping) {
-            if (fallbackMappingType === MappingTypes.OBF) {
-                return this.obfName;
-            }
-            mapping = this.mappings.get(fallbackMappingType);
-        }
-        if (!mapping) {
-            if (fallback2MappingType === MappingTypes.OBF) {
-                return this.obfName;
-            }
-            mapping = this.mappings.get(fallback2MappingType);
-        }
-        return mapping ?? "-";
-    }
-
-    getComment(mappingType: MappingTypes) {
-        return this.comments.get(mappingType);
-    }
+interface MethodData extends ClassItem {
+    readonly params: Map<MappingTypes, Map<number, string>>;
 
 }
 
-abstract class ClassItem extends AbstractData {
-    protected obfDesc: string | null;
-    protected readonly descriptors: Map<MappingTypes, string> = new Map();
-
-    constructor(classMappings: ClassMappings, obfName: string, obfDesc: string | null) {
-        super(classMappings, obfName);
-        this.obfDesc = obfDesc;
-    }
-
-    transformDescriptor(mappingType: MappingTypes): string | null {
-        if (this.obfDesc == null) return null;
-        if (MappingTypes.OBF == mappingType) {
-            return this.obfDesc;
-        }
-        return this.obfDesc.replace(/L(.+?);/g, (match, p1) => {
-            return `L${this.classMappings.classes.get(p1)?.mappings.get(mappingType) ?? p1};`;
-        });
-    }
-
-    transformDescriptorWithFallback(mappingType: MappingTypes, fallbackMappingType: MappingTypes): string | null {
-        if (this.obfDesc == null) return null;
-        if (MappingTypes.OBF == mappingType) {
-            return this.obfDesc;
-        }
-        return this.obfDesc.replace(/L(.+?);/g, (match, p1) => {
-            const clz = this.classMappings.classes.get(p1);
-            const mapped = clz?.getMappingWithFallback(mappingType, fallbackMappingType);
-            return `L${!mapped || mapped == "-" || !mapped ? p1 : mapped};`;
-        });
-    }
-
-    transformDescriptorWithDoubleFallback(mappingType: MappingTypes, fallbackMappingType: MappingTypes, fallback2MappingType: MappingTypes): string | null {
-        if (this.obfDesc == null) return null;
-        if (MappingTypes.OBF == mappingType) {
-            return this.obfDesc;
-        }
-        return this.obfDesc.replace(/L(.+?);/g, (match, p1) => {
-            const clz = this.classMappings.classes.get(p1);
-            const mapped = clz?.getMappingWithDoubleFallback(mappingType, fallbackMappingType, fallback2MappingType);
-            return `L${mapped == "-" || !mapped ? p1 : mapped};`;
-        });
-    }
-
-    setDescriptor(mappingType: MappingTypes, desc: string | null) {
-        if (mappingType === MappingTypes.OBF) {
-            if (this.obfDesc != null) throw new Error("Tried to change obf descriptor!");
-            else this.obfDesc = desc;
-            return
-        }
-        if (desc == null) {
-            return;
-        }
-        this.descriptors.set(mappingType, desc);
-    }
-
-    getDescriptor(mappingType: MappingTypes) {
-        if (mappingType === MappingTypes.OBF) {
-            return this.obfDesc;
-        }
-        if (!this.descriptors.has(mappingType)) {
-            const newDesc = this.transformDescriptor(mappingType);
-            if (newDesc) {
-                this.descriptors.set(mappingType, newDesc);
-            }
-            return newDesc;
-        }
-        return this.descriptors.get(mappingType);
-    }
-
-    abstract getKey(): string;
-}
-
-class MethodData extends ClassItem {
-    readonly params: Map<MappingTypes, Map<number, string>> = new Map();
-
-    getKey(): string {
-        return this.obfName + this.obfDesc;
-    }
+interface FieldData extends ClassItem {
 
 }
 
-class FieldData extends ClassItem {
-
-    getKey(): string {
-        return this.obfName;
-    }
-}
-
-class ClassData extends AbstractData {
-    fields: Map<string, FieldData> = new Map();
-    methods: Map<string, MethodData> = new Map();
-
-    constructor(mappings: ClassMappings, obfName: string) {
-        super(mappings, obfName);
-    }
-
-    getOrAddField(field_name: string, field_desc: string | null, mapping: MappingTypes): FieldData | null {
-        if (mapping === MappingTypes.OBF && this.fields.has(field_name)) {
-            const field = this.fields.get(field_name);
-            if (field?.getDescriptor(MappingTypes.OBF) == null) {
-                field?.setDescriptor(MappingTypes.OBF, this.classMappings.reverseTransformDesc(field_desc, mapping));
-            }
-            return field ?? null;
-        }
-        for (const field of this.fields.values()) {
-            if (field.getMapping(mapping) === field_name || field.getMapping(MappingTypes.OBF) === field_name) {
-                if (field.getDescriptor(MappingTypes.OBF) == null) {
-                    field.setDescriptor(MappingTypes.OBF, this.classMappings.reverseTransformDesc(field_desc, mapping));
-                }
-                return field;
-            }
-        }
-        const obfDesc = this.classMappings.reverseTransformDesc(field_desc, mapping);
-        if (mapping != MappingTypes.OBF) console.log(`adding ${this.obfName};${field_name}:${obfDesc}`)
-        const fd = new FieldData(this.classMappings, field_name, obfDesc);
-        this.fields.set(fd.getKey(), fd);
-        return fd;
-    }
-
-    getOrAddMethod(method_name: string, method_desc: string, mapping: MappingTypes): MethodData | null {
-        if (mapping === MappingTypes.OBF && this.methods.has(method_name + method_desc)) {
-            return this.methods.get(method_name + method_desc) ?? null;
-        }
-        for (const method of this.methods.values()) {
-            if ((method.getMapping(mapping) === method_name || method.getMapping(MappingTypes.OBF) === method_name) && method.getDescriptor(mapping) === method_desc) {
-                return method;
-            }
-        }
-        const obfDesc = this.classMappings.reverseTransformDesc(method_desc, mapping);
-        if (mapping != MappingTypes.OBF) console.log(`adding ${this.obfName};${method_name}${obfDesc}`)
-        const fd = new MethodData(this.classMappings, method_name, obfDesc);
-        this.methods.set(fd.getKey(), fd);
-        return fd;
-    }
+interface ClassData extends AbstractData {
+    fields: Map<string, FieldData>;
+    methods: Map<string, MethodData>;
 }
 
 async function onSearchResults(classes: ClassData[], enabledMappings: MappingTypes[], searchValue: string) {
@@ -1128,209 +899,86 @@ async function addClass(classData: ClassData, enabledMappings: MappingTypes[], s
         if (selectedClass) selectedClass.classList.remove("selectedClass");
         row.classList.add("selectedClass");
         selectedClass = row;
-        loadClass(classData, enabledMappings, searchValue);
+        sendRequestClassData(classData.obfName, enabledMappings);
         loadComment(classData);
     };
 
     ClassTable.appendChild(row);
 }
 
+function sendRequestClassData(className: string, enabledMappings: MappingTypes[]) {
+    const sigChecks = [];
+    if (mojangSignatureCheck.checked) sigChecks.push(MappingTypes.MOJMAP);
+    if (srgSignatureCheck.checked) sigChecks.push(MappingTypes.SRG);
+    if (yarnSignatureCheck.checked) sigChecks.push(MappingTypes.YARN);
+    if (hashedMojmapSignatureCheck.checked) sigChecks.push(MappingTypes.HASHED);
+    if (quiltSignatureCheck.checked) sigChecks.push(MappingTypes.QUILT);
+    if (spigotSignatureCheck.checked) sigChecks.push(MappingTypes.SPIGOT);
+    if (yarnIntermediarySignatureCheck.checked) sigChecks.push(MappingTypes.INTERMEDIARY);
+    if (mcpSignatureCheck.checked) sigChecks.push(MappingTypes.MCP);
+    worker.postMessage({ type: "requestClassData", className: className, enabledMappings: enabledMappings, sigChecks: sigChecks, fallback: fallbackToOBF.checked });
+}
 
 //class method + field display stuff
-function loadClass(classData: ClassData, enabledMappings: MappingTypes[], searchValue: string) {
+function onClassData(classData: ClassData, methods: string[][], fields: string[][], enabledMappings: MappingTypes[]) {
     selectedMethod = null;
     MethodTable.innerHTML = "";
     ParamsTable.innerHTML = "";
     FieldTable.innerHTML = "";
-    const fallbackTOOBF = fallbackToOBF.checked;
 
-    //methods
-    for (const [methodName, methodData] of classData.methods) {
+    for (const method of methods) {
+        const methodName = method.shift();
         if (!methodName) continue;
-        const row = document.createElement("tr");
-        const obf = document.createElement("td");
-        row.classList.add("MethodRow");
-        obf.innerHTML = methodName.replace("<", "&lt;").replace(">", "&gt;");
-        row.appendChild(obf);
 
-        if (enabledMappings.includes(MappingTypes.MOJMAP)) {
-            const mojang = document.createElement("td");
-            mojang.innerHTML = methodData.getMappingWithFallback(MappingTypes.MOJMAP, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.MOJMAP).replace("<", "&lt;").replace(">", "&gt;");
-            if (mojang.innerHTML != "-" && mojangSignatureCheck.checked) {
-                mojang.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.MOJMAP, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.MOJMAP);
-            }
-            row.appendChild(mojang);
+        const tr = document.createElement("tr");
+        tr.classList.add("MethodRow");
+        for (const m of method) {
+            const td = document.createElement("td");
+            td.innerHTML = m;
+            tr.appendChild(td);
         }
-
-        if (enabledMappings.includes(MappingTypes.SRG)) {
-            const srg = document.createElement("td");
-            srg.innerHTML = methodData.getMappingWithFallback(MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG).replace("<", "&lt;").replace(">", "&gt;");
-            if (srg.innerHTML != "-" && srgSignatureCheck.checked) {
-                srg.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
-            }
-            row.appendChild(srg);
-        }
-
-        if (enabledMappings.includes(MappingTypes.MCP)) {
-            const mcp = document.createElement("td");
-            mcp.innerHTML = methodData.getMappingWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG).replace("<", "&lt;").replace(">", "&gt;");
-            if (mcp.innerHTML != "-" && mcpSignatureCheck.checked) {
-                mcp.innerHTML += methodData.transformDescriptorWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
-            }
-            row.appendChild(mcp);
-        }
-
-        if (enabledMappings.includes(MappingTypes.INTERMEDIARY)) {
-            const yarnIntermediary = document.createElement("td");
-            yarnIntermediary.innerHTML = methodData.getMappingWithFallback(MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY).replace("<", "&lt;").replace(">", "&gt;");
-            if (yarnIntermediary.innerHTML != "-" && yarnIntermediarySignatureCheck.checked) {
-                yarnIntermediary.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
-            }
-            row.appendChild(yarnIntermediary);
-        }
-
-        if (enabledMappings.includes(MappingTypes.YARN)) {
-            const yarn = document.createElement("td");
-            yarn.innerHTML = methodData.getMappingWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY).replace("<", "&lt;").replace(">", "&gt;");
-            if (yarn.innerHTML != "-" && yarnSignatureCheck.checked) {
-                yarn.innerHTML += methodData.transformDescriptorWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
-            }
-            row.appendChild(yarn);
-        }
-
-        if (enabledMappings.includes(MappingTypes.HASHED)) {
-            const hashed = document.createElement("td");
-            hashed.innerHTML = methodData.getMappingWithFallback(MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED).replace("<", "&lt;").replace(">", "&gt;");
-            if (hashed.innerHTML != "-" && yarnSignatureCheck.checked) {
-                hashed.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
-            }
-            row.appendChild(hashed);
-        }
-
-        if (enabledMappings.includes(MappingTypes.QUILT)) {
-            const quilt = document.createElement("td");
-            quilt.innerHTML = methodData.getMappingWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED).replace("<", "&lt;").replace(">", "&gt;");
-            if (quilt.innerHTML != "-" && yarnSignatureCheck.checked) {
-                quilt.innerHTML += methodData.transformDescriptorWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
-            }
-            row.appendChild(quilt);
-        }
-
-        if (enabledMappings.includes(MappingTypes.SPIGOT)) {
-            const spigot = document.createElement("td");
-            spigot.innerHTML = methodData.getMappingWithFallback(MappingTypes.SPIGOT, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SPIGOT).replace("<", "&lt;").replace(">", "&gt;");
-            if (spigot.innerHTML != "-" && yarnSignatureCheck.checked) {
-                spigot.innerHTML += methodData.transformDescriptorWithFallback(MappingTypes.SPIGOT, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SPIGOT);
-            }
-            row.appendChild(spigot);
-        }
-
-        row.onclick = () => {
+        MethodTable.appendChild(tr);
+        tr.onclick = () => {
             if (selectedMethod) selectedMethod.classList.remove("selectedMethod");
-            row.classList.add("selectedMethod");
-            selectedMethod = row;
-            loadMethod(methodData, enabledMappings);
-            loadComment(methodData);
-        }
-
-        MethodTable.appendChild(row);
-    }
-
-    //@ts-ignore
-    if (searchValue != "") for (const child: HTMLElement of MethodTable.children) {
-        if (child.innerText.toLowerCase().includes(searchValue)) {
-            child.offsetParent?.scrollTo(0, child.offsetTop-(child.offsetHeight));
-            child.click();
-            break;
+            tr.classList.add("selectedMethod");
+            selectedMethod = tr;
+            const methodData = classData.methods.get(methodName);
+            if (methodData) {
+                loadMethod(methodData, enabledMappings);
+                loadComment(methodData);
+            }
         }
     }
 
-    //fields
-    for (const [fieldName, fieldData] of classData.fields) {
+    if (searchInput.value != "") {
+        //@ts-ignore
+        for (const child: HTMLElement of MethodTable.children) {
+            if (child.innerText.toLowerCase().includes(searchInput.value)) {
+                child.offsetParent?.scrollTo(0, child.offsetTop-(child.offsetHeight));
+                child.click();
+                break;
+            }
+        }
+    }
+
+    for (const field of fields) {
+        const fieldName = field.shift();
         if (!fieldName) continue;
-        const row = document.createElement("tr");
-        const obf = document.createElement("td");
-        row.classList.add("FieldRow");
-        obf.innerHTML = fieldName + ":" + fieldData.transformDescriptor(MappingTypes.OBF);
-        row.appendChild(obf);
 
-        if (enabledMappings.includes(MappingTypes.MOJMAP)) {
-            const mojang = document.createElement("td");
-            mojang.innerHTML = fieldData.getMappingWithFallback(MappingTypes.MOJMAP, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.MOJMAP);
-            if (mojang.innerHTML != "-" && mojangSignatureCheck.checked) {
-                mojang.innerHTML += ":" + fieldData.transformDescriptorWithFallback(MappingTypes.MOJMAP, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.MOJMAP);
+        const tr = document.createElement("tr");
+        tr.classList.add("FieldRow");
+        for (const f of field) {
+            const td = document.createElement("td");
+            td.innerHTML = f;
+            tr.appendChild(td);
+        }
+        FieldTable.appendChild(tr);
+        tr.onclick = () => {
+            const fieldData = classData.fields.get(fieldName);
+            if (fieldData) {
+                loadComment(fieldData);
             }
-            row.appendChild(mojang);
         }
-
-        if (enabledMappings.includes(MappingTypes.SRG)) {
-            const srg = document.createElement("td");
-            srg.innerHTML = fieldData.getMappingWithFallback(MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
-            if (srg.innerHTML != "-" && srgSignatureCheck.checked) {
-                srg.innerHTML += ":" + fieldData.transformDescriptorWithFallback(MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
-            }
-            row.appendChild(srg);
-        }
-
-        if (enabledMappings.includes(MappingTypes.MCP)) {
-            const mcp = document.createElement("td");
-            mcp.innerHTML = fieldData.getMappingWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
-            if (mcp.innerHTML != "-" && mcpSignatureCheck.checked) {
-                mcp.innerHTML += ":" + fieldData.transformDescriptorWithDoubleFallback(MappingTypes.MCP, MappingTypes.SRG, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SRG);
-            }
-            row.appendChild(mcp);
-        }
-
-        if (enabledMappings.includes(MappingTypes.INTERMEDIARY)) {
-            const yarnIntermediary = document.createElement("td");
-            yarnIntermediary.innerHTML = fieldData.getMappingWithFallback(MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
-            if (yarnIntermediary.innerHTML != "-" && yarnIntermediarySignatureCheck.checked) {
-                yarnIntermediary.innerHTML += ":" + fieldData.transformDescriptorWithFallback(MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
-            }
-            row.appendChild(yarnIntermediary);
-        }
-
-        if (enabledMappings.includes(MappingTypes.YARN)) {
-            const yarn = document.createElement("td");
-            yarn.innerHTML = fieldData.getMappingWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
-            if (yarn.innerHTML != "-" && yarnSignatureCheck.checked) {
-                yarn.innerHTML += ":" + fieldData.transformDescriptorWithDoubleFallback(MappingTypes.YARN, MappingTypes.INTERMEDIARY, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.INTERMEDIARY);
-            }
-            row.appendChild(yarn);
-        }
-
-        if (enabledMappings.includes(MappingTypes.HASHED)) {
-            const hashed = document.createElement("td");
-            hashed.innerHTML = fieldData.getMappingWithFallback(MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
-            if (hashed.innerHTML != "-" && yarnSignatureCheck.checked) {
-                hashed.innerHTML += ":" + fieldData.transformDescriptorWithFallback(MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
-            }
-            row.appendChild(hashed);
-        }
-
-        if (enabledMappings.includes(MappingTypes.QUILT)) {
-            const quilt = document.createElement("td");
-            quilt.innerHTML = fieldData.getMappingWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
-            if (quilt.innerHTML != "-" && yarnSignatureCheck.checked) {
-                quilt.innerHTML += ":" + fieldData.transformDescriptorWithDoubleFallback(MappingTypes.QUILT, MappingTypes.HASHED, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.HASHED);
-            }
-            row.appendChild(quilt);
-        }
-
-        if (enabledMappings.includes(MappingTypes.SPIGOT)) {
-            const spigot = document.createElement("td");
-            spigot.innerHTML = fieldData.getMappingWithFallback(MappingTypes.SPIGOT, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SPIGOT);
-            if (spigot.innerHTML != "-" && spigotSignatureCheck.checked) {
-                spigot.innerHTML += ":" + fieldData.transformDescriptorWithFallback(MappingTypes.SPIGOT, fallbackTOOBF ? MappingTypes.OBF : MappingTypes.SPIGOT);
-            }
-            row.appendChild(spigot);
-        }
-
-        row.onclick = () => {
-            loadComment(fieldData);
-        }
-
-        FieldTable.appendChild(row);
     }
 }
 
