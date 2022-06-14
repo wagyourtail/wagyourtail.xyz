@@ -113,7 +113,7 @@ worker.onmessage = async (e) => {
             await onSearchResults(data.results, data.enabled, data.value);
             break;
         case "export":
-            onExportedMappings(data.results);
+            onExportedMappings(data.data);
             break;
         case "importMappingsDone":
             await onImportMappingsDone(data.target);
