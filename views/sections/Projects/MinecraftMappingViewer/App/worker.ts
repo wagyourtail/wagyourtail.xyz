@@ -467,7 +467,7 @@ class ClassMappings {
             return;
         }
 
-        const mappingsURL: string = (await (await fetch(vers)).json())?.downloads?.client_mappings?.url;
+        const mappingsURL: string = (await (await fetch(`${NO_CORS_BYPASS}/${vers}`)).json())?.downloads?.client_mappings?.url;
 
         if (!mappingsURL) {
             return;
