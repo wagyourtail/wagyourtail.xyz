@@ -98,7 +98,7 @@ async function loadManifests() {
     if (!manifests.mcManifest) {
         //get mc versions
         profiler("Getting Minecraft Versions");
-        const res = await fetch("https://launchermeta.mojang.com/mc/game/version_manifest.json");
+        const res = await fetch(`${NO_CORS_BYPASS}/https://launchermeta.mojang.com/mc/game/version_manifest.json`);
         profilerDel("Getting Minecraft Versions");
         manifests.mcManifest = await res.json();
     }
