@@ -106,9 +106,21 @@ async function loadManifests() {
     //load yarn version nums
     if (!manifests.yarnManifest) {
         profiler("Getting Yarn Versions");
-        const res = await fetch("https://maven.fabricmc.net/net/fabricmc/yarn/versions.json");
+        const res = await fetch("https://meta.fabricmc.net/v2/versions/yarn");
         profilerDel("Getting Yarn Versions");
-        manifests.yarnManifest = await res.json();
+        const yarnInternalMappings: {
+            gameVersion: MCVersionSlug
+            separator: string
+            build: number
+            maven: string
+            version: string
+            stable: boolean
+        }[] = await res.json();
+        manifests.yarnManifest = {}
+        for (const version of yarnInternalMappings) {
+            if (!manifests.yarnManifest[version.gameVersion]) manifests.yarnManifest[version.gameVersion] = []
+            manifests.yarnManifest[version.gameVersion].push(version.build)
+        }
 
 
         //legacy yarn
