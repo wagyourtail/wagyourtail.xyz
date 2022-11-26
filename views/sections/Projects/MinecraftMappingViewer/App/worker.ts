@@ -146,7 +146,7 @@ async function loadManifests() {
 
         profiler("Getting Legacy Intermediary Versions");
         {
-            const res = await fetch("https://meta.legacyfabric.net/v2/versions/yarn");
+            const res = await fetch("https://meta.legacyfabric.net/v2/versions/intermediary");
             const intermediaryInternalMappings: {
                 maven: string,
                 version: string,
