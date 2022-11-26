@@ -105,6 +105,37 @@ async function loadManifests() {
 
     //load yarn version nums
     if (!manifests.yarnManifest) {
+        profiler("Getting Intermediary Versions");
+        {
+            const res = await fetch("https://meta.fabricmc.net/v2/versions/intermediary");
+            const intermediaryInternalMappings: {
+                maven: string,
+                version: string,
+                stable: boolean
+            }[] = await res.json();
+            manifests.yarnManifest = {}
+            for (const version of intermediaryInternalMappings) {
+                if (!manifests.yarnManifest[version.version]) manifests.yarnManifest[version.version] = []
+            }
+        }
+        profilerDel("Getting Intermediary Versions");
+
+        profiler("Getting Legacy Intermediary Versions");
+        {
+            const res = await fetch("https://meta.legacyfabric.net/v2/versions/intermediary");
+            const intermediaryInternalMappings: {
+                maven: string,
+                version: string,
+                stable: boolean
+            }[] = await res.json();
+            manifests.yarnManifest = {}
+            for (const version of intermediaryInternalMappings) {
+                if (!manifests.yarnManifest[version.version]) manifests.yarnManifest[version.version] = []
+            }
+        }
+        profilerDel("Getting Legacy Intermediary Versions");
+
+
         profiler("Getting Yarn Versions");
         {
             const res = await fetch("https://meta.fabricmc.net/v2/versions/yarn");
@@ -143,21 +174,6 @@ async function loadManifests() {
             }
         }
         profilerDel("Getting Legacy Yarn Versions");
-
-        profiler("Getting Legacy Intermediary Versions");
-        {
-            const res = await fetch("https://meta.legacyfabric.net/v2/versions/intermediary");
-            const intermediaryInternalMappings: {
-                maven: string,
-                version: string,
-                stable: boolean
-            }[] = await res.json();
-            manifests.yarnManifest = {}
-            for (const version of intermediaryInternalMappings) {
-                if (!manifests.yarnManifest[version.version]) manifests.yarnManifest[version.version] = []
-            }
-        }
-        profilerDel("Getting Legacy Intermediary Versions");
     }
 
     //load mcp version nums
