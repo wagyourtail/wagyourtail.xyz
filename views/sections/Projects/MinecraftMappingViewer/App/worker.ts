@@ -106,48 +106,58 @@ async function loadManifests() {
     //load yarn version nums
     if (!manifests.yarnManifest) {
         profiler("Getting Yarn Versions");
-        const res = await fetch("https://meta.fabricmc.net/v2/versions/yarn");
-        profilerDel("Getting Yarn Versions");
-        const yarnInternalMappings: {
-            gameVersion: MCVersionSlug
-            separator: string
-            build: number
-            maven: string
-            version: string
-            stable: boolean
-        }[] = await res.json();
-        manifests.yarnManifest = {}
-        for (const version of yarnInternalMappings) {
-            if (!manifests.yarnManifest[version.gameVersion]) manifests.yarnManifest[version.gameVersion] = []
-            manifests.yarnManifest[version.gameVersion].push(version.build)
-        }
-
-
-        //legacy yarn
-        const xmlParse = new DOMParser();
-        profiler("Getting Legacy Yarn Versions");
-        const intRes = await fetch(`${NO_CORS_BYPASS}/https://maven.legacyfabric.net/net/fabricmc/intermediary/maven-metadata.xml`);
-        profilerDel("Getting Legacy Yarn Versions");
-        const interXML = xmlParse.parseFromString(await intRes.text(), "text/xml");
-        Array.from(interXML.getElementsByTagName("versions")[0].childNodes).forEach(e => {
-            if (e.textContent === null) return;
-            manifests.yarnManifest[e.textContent] = [];
-        });
-
-        profiler("Getting Legacy Yarn Intermediary Versions");
-        const yarnRes = await fetch(`${NO_CORS_BYPASS}/https://maven.legacyfabric.net/net/fabricmc/yarn/maven-metadata.xml`);
-        profilerDel("Getting Legacy Yarn Intermediary Versions");
-        const yarnXML = xmlParse.parseFromString(await yarnRes.text(), "text/xml");
-        Array.from(yarnXML.getElementsByTagName("versions")[0].childNodes).forEach(e => {
-            const textContent = e.textContent;
-            if (textContent === null) return;
-            const mcVersion = textContent.split("+")[0];
-            if (mcVersion in manifests.yarnManifest) {
-                manifests.yarnManifest[mcVersion].push(parseInt(<string>textContent.split(".").pop()));
-            } else {
-                console.warn("mcVersion not in manifest??? full yarn version id:", textContent);
+        {
+            const res = await fetch("https://meta.fabricmc.net/v2/versions/yarn");
+            const yarnInternalMappings: {
+                gameVersion: MCVersionSlug
+                separator: string
+                build: number
+                maven: string
+                version: string
+                stable: boolean
+            }[] = await res.json();
+            manifests.yarnManifest = {}
+            for (const version of yarnInternalMappings) {
+                if (!manifests.yarnManifest[version.gameVersion]) manifests.yarnManifest[version.gameVersion] = []
+                manifests.yarnManifest[version.gameVersion].push(version.build)
             }
-        });
+        }
+        profilerDel("Getting Yarn Versions");
+
+
+        profiler("Getting Legacy Yarn Versions");
+        {
+            const res = await fetch("https://meta.legacyfabric.net/v2/versions/yarn");
+            const yarnInternalMappings: {
+                gameVersion: MCVersionSlug
+                separator: string
+                build: number
+                maven: string
+                version: string
+                stable: boolean
+            }[] = await res.json();
+            manifests.yarnManifest = {}
+            for (const version of yarnInternalMappings) {
+                if (!manifests.yarnManifest[version.gameVersion]) manifests.yarnManifest[version.gameVersion] = []
+                manifests.yarnManifest[version.gameVersion].push(version.build)
+            }
+        }
+        profilerDel("Getting Legacy Yarn Versions");
+
+        profiler("Getting Legacy Intermediary Versions");
+        {
+            const res = await fetch("https://meta.legacyfabric.net/v2/versions/yarn");
+            const intermediaryInternalMappings: {
+                maven: string,
+                version: string,
+                stable: boolean
+            }[] = await res.json();
+            manifests.yarnManifest = {}
+            for (const version of intermediaryInternalMappings) {
+                if (!manifests.yarnManifest[version.version]) manifests.yarnManifest[version.version] = []
+            }
+        }
+        profilerDel("Getting Legacy Intermediary Versions");
     }
 
     //load mcp version nums
@@ -998,7 +1008,7 @@ class ClassMappings {
         if (mcVersionCompare(this.mcversion, "1.14") != -1)
             res = await fetch(`https://maven.fabricmc.net/net/fabricmc/intermediary/${this.mcversion}/intermediary-${this.mcversion}-v2.jar`);
         else
-            res = await fetch(`${NO_CORS_BYPASS}/https://maven.legacyfabric.net/net/fabricmc/intermediary/${this.mcversion}/intermediary-${this.mcversion}-v2.jar`);
+            res = await fetch(`${NO_CORS_BYPASS}/https://maven.legacyfabric.net/net/legacyfabric/intermediary/${this.mcversion}/intermediary-${this.mcversion}-v2.jar`);
         profilerDel("Downloading Yarn Intermediary Mappings");
         const zip = new JSZip();
         const zipContent = await zip.loadAsync(await res.arrayBuffer());
@@ -1034,7 +1044,7 @@ class ClassMappings {
         if (mcVersionCompare(this.mcversion, "1.14") != -1)
             res = await fetch(`https://maven.fabricmc.net/net/fabricmc/yarn/${this.mcversion}+build.${version}/yarn-${this.mcversion}+build.${version}-v2.jar`);
         else
-            res = await fetch(`${NO_CORS_BYPASS}/https://maven.legacyfabric.net/net/fabricmc/yarn/${this.mcversion}+build.${version}/yarn-${this.mcversion}+build.${version}-v2.jar`);
+            res = await fetch(`${NO_CORS_BYPASS}/https://maven.legacyfabric.net/net/legacyfabric/yarn/${this.mcversion}+build.${version}/yarn-${this.mcversion}+build.${version}-v2.jar`);
         profilerDel("Downloading Yarn Mappings");
         const zip = new JSZip();
         const zipContent = await zip.loadAsync(await res.arrayBuffer());
