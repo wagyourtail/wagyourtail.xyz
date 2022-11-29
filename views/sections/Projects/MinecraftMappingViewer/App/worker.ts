@@ -105,6 +105,7 @@ async function loadManifests() {
 
     //load yarn version nums
     if (!manifests.yarnManifest) {
+        manifests.yarnManifest = {}
         profiler("Getting Intermediary Versions");
         {
             const res = await fetch("https://meta.fabricmc.net/v2/versions/intermediary");
@@ -113,7 +114,6 @@ async function loadManifests() {
                 version: string,
                 stable: boolean
             }[] = await res.json();
-            manifests.yarnManifest = {}
             for (const version of intermediaryInternalMappings) {
                 if (!manifests.yarnManifest[version.version]) manifests.yarnManifest[version.version] = []
             }
@@ -128,7 +128,6 @@ async function loadManifests() {
                 version: string,
                 stable: boolean
             }[] = await res.json();
-            manifests.yarnManifest = {}
             for (const version of intermediaryInternalMappings) {
                 if (!manifests.yarnManifest[version.version]) manifests.yarnManifest[version.version] = []
             }
@@ -147,7 +146,6 @@ async function loadManifests() {
                 version: string
                 stable: boolean
             }[] = await res.json();
-            manifests.yarnManifest = {}
             for (const version of yarnInternalMappings) {
                 if (!manifests.yarnManifest[version.gameVersion]) manifests.yarnManifest[version.gameVersion] = []
                 manifests.yarnManifest[version.gameVersion].push(version.build)
@@ -167,7 +165,6 @@ async function loadManifests() {
                 version: string
                 stable: boolean
             }[] = await res.json();
-            manifests.yarnManifest = {}
             for (const version of yarnInternalMappings) {
                 if (!manifests.yarnManifest[version.gameVersion]) manifests.yarnManifest[version.gameVersion] = []
                 manifests.yarnManifest[version.gameVersion].push(version.build)
