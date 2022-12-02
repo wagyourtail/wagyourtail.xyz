@@ -171,6 +171,9 @@ async function loadManifests() {
             }
         }
         profilerDel("Getting Legacy Yarn Versions");
+        for (const version of Object.values(manifests.yarnManifest)) {
+            version.reverse()
+        }
     }
 
     //load mcp version nums
