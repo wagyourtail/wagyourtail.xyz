@@ -1,0 +1,84 @@
+extends ../../../globals/base
+
+block style
+
+block externallink
+    h4 Visit
+        a(href= "https://github.com/wagyourtail/CS455") here
+        |  for this project's git repo.
+
+block content
+    h2 CS455 - AI
+    p#description Projects from the class I took on Artificial Intelligence. (in Unity).
+
+    h4 M1-PR1 - Seek and Flee
+    p
+        | This adds seek/flee behavior to the example project
+        | that we started as our first assignment.
+        | This is an extension of the demo project
+        a(href = "https://www.youtube.com/playlist?list=PLPV2KyIb3jR53Jce9hP7G5xC4O9AgnOuL") cubethon
+        | .
+        br
+        | This demo uses the "A" and "D" keys.
+    a(href = "https://wagyourtail.github.io/CS455/m1-pr2/index.html") play
+        br
+        img(src = "/static/m1-pr1.png" width="800px" alt="image of the game." title = "click to play.")
+
+
+    h4 M1-PR2 - Kinematic Movement, Movement Behaviors Demo
+    p
+        | This demo shows various movement behaviors implemented in Unity.
+        | These movement behaviors include, Align, Arrive, Face, Path Follow, Pursue, Seek, Separate, and Wander.
+    a(href = "https://wagyourtail.github.io/CS455/m1-pr2/index.html") play
+        br
+        img(src = "/static/m1-pr2.png" width="800px" alt="image of the demo." title = "click to play.")
+
+    h4 M1-PR4 - Kinematic Movement, Dynamic Movement, and Obstacle Avoidance
+    p
+        | For this assignment, we were tasked with combining our movement behaviors using
+        | flocking. The main purpose of flocking is to create more complicated movements by combining/prioritizing
+        | different behaviors.
+        br
+        | The objective in this game is to get the squares in their respective zones.
+        | The squares will run away from the white one, while avoiding the walls.
+        br
+        | This demo uses the position of the mouse on screen for controls.
+    a(href = "https://wagyourtail.github.io/CS455/m1-pr4/index.html") play
+        br
+        img(src = "/static/m1-pr4.png" width="800px" alt="image of the game." title = "click to play.")
+
+    h4 M2-PR1 - Pathfinding
+    p
+        | For this assignment, we were tasked with implementing Djikstra's algorithm with tactical pathfinding.
+        | This means that the pathfinder would add weight to a node for reasons other than distance.
+        | One use of this is for terrain or other barriers that would slow the actor down if using distance only.
+        br
+        | This demo uses the mouse, click on a node to pathfind to it.
+    a(href = "https://wagyourtail.github.io/CS455/m2-pr1/index.html") play
+        br
+        img(src = "/static/m2-pr1.png" width="800px" alt="image of the game." title = "click to play.")
+
+    h4 M2-PR 1.2 - Nav Meshes
+    p
+        | This assignment uses the nav-mesh system in unity. it includes off-mesh jumps, and vertical elements.
+        br
+        | This demo uses the mouse, click on a location to pathfind to it.
+    a(href = "https://wagyourtail.github.io/CS455/m2-pr1.2/index.html") play
+        br
+        img(src = "/static/m2-pr1.2.png" width="800px" alt="image of the game." title = "click to play.")
+
+    h4 M2-PR3 - Behavior Trees
+    p
+        | This assignment uses behavior (decision) trees in order to determine the tasks/task order of an AI agent.
+        br
+        | The controls for this demo are on-screen.
+    a(href = "https://wagyourtail.github.io/CS455/m2-pr3/index.html") play
+        br
+        img(src = "/static/m2-pr3.png" width="800px" alt="image of the game." title = "click to play.")
+
+    h4 M3-DV1 - Machine Learning
+    p
+        | This assignment has us use machine learning for a go to target algorithm.
+    a(href = "https://wagyourtail.github.io/CS455/m3-dv1/index.html") play
+        br
+        img(src = "/static/m3-pr1.png" width="800px" alt="image of the game." title = "click to play.")
