@@ -51,5 +51,5 @@ class Website {
 const site = new Website();
 
 site.app.listen(3000, () => {
-    console.log('Listening at http://localhost:8000/');
+    console.log('Listening at http://localhost:3000/');
 });
