@@ -527,7 +527,7 @@ class ClassMappings {
         const lines = proguard_mappings.split("\n");
 
         lines.shift(); // copyright notice
-        const classes = lines.join("\n").matchAll(/^[^\s].+?$(?:\n\s.+?$)*/gm);
+        const classes = lines.join("\n").matchAll(/^[^\s#].+?$(?:\n[\s#].+?$)*/gm);
 
         // build reversed mappings
         const reversedMappings = new Map<string, ReversedMappings>();
@@ -548,6 +548,7 @@ class ClassMappings {
 
             for (const classItem of classdata) {
                 const line = classItem.trim();
+                if (line.startsWith("#")) continue;
                 const matchMethod = line.match(/^(?:\d+:\d+:)?([^\s]+)\s*([^\s]+)(\(.*?\))\s*->\s*([^\s]+)/);
                 if (matchMethod) {
                     classItemData.methods.set(matchMethod[2], {retval:matchMethod[1], params:matchMethod[3], obf:matchMethod[4]});
